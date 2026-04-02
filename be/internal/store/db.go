@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strings"
@@ -30,4 +31,15 @@ func Open(driver string, dsn string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func newUUID(ctx context.Context, db *sql.DB) (string, error) {
+	var id string
+	if err := db.QueryRowContext(ctx, "SELECT UUID()").Scan(&id); err != nil {
+		return "", err
+	}
+	if id == "" {
+		return "", errors.New("uuid is empty")
+	}
+	return id, nil
 }

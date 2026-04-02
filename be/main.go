@@ -12,7 +12,6 @@ import (
 
 	"catatan-backend/internal/config"
 	"catatan-backend/internal/http/router"
-	"catatan-backend/internal/notecrypto"
 	"catatan-backend/internal/store"
 
 	"github.com/joho/godotenv"
@@ -32,16 +31,15 @@ func main() {
 	}
 	defer db.Close()
 
-	// if err := store.Migrate(db); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	amountCipher, err := notecrypto.NewAmountCipher(cfg.NotesEncryptKey)
-	if err != nil {
-		log.Fatal(err)
+	if err := store.Migrate(db); err != nil {
+		log.Fatal("migration failed: ", err)
 	}
 
-	e := router.New(cfg, db, amountCipher)
+	if err := store.Seed(db); err != nil {
+		log.Println("seed warning (may already exist): ", err)
+	}
+
+	e := router.New(cfg, db)
 	addr := ":" + cfg.Port
 	srv := &http.Server{Addr: addr, Handler: e}
 	log.Printf("backend running on http://localhost%s", addr)

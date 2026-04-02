@@ -1,17 +1,22 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 	"time"
 
 	"catatan-backend/internal/googleauth"
 	jwtutil "catatan-backend/internal/jwt"
 	"catatan-backend/internal/model"
+	"catatan-backend/internal/store"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/labstack/echo/v5"
 )
 
 type AuthHandler struct {
+	DB              *sql.DB
 	JWTSecret       string
 	GoogleClientID  string
 	AccessTokenTTL  time.Duration
@@ -86,11 +91,63 @@ func (h AuthHandler) GoogleLogin(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
+	// Upsert user in database
+	if h.DB != nil {
+		dbUser, _ := store.UpsertGoogleUser(c.Request().Context(), h.DB, user.Email, user.Name, user.Picture, user.ID)
+		if dbUser.ID != "" {
+			user.ID = dbUser.ID
+		}
+	}
+
 	resp, err := h.issueTokenPair(user)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat JWT")
 	}
 
+	return c.JSON(http.StatusOK, resp)
+}
+
+type emailLoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+func (h AuthHandler) EmailLogin(c *echo.Context) error {
+	var req emailLoginRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Body tidak valid")
+	}
+	if req.Email == "" || req.Password == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Email dan password wajib diisi")
+	}
+
+	dbUser, err := store.GetAdminUserByEmail(c.Request().Context(), h.DB, req.Email)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Email atau password salah")
+	}
+	if dbUser.Status != "aktif" {
+		return echo.NewHTTPError(http.StatusForbidden, "Akun tidak aktif")
+	}
+	if dbUser.PasswordHash == "" {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Akun ini menggunakan login Google")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(req.Password)); err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, "Email atau password salah")
+	}
+
+	_ = store.UpdateUserLastLogin(c.Request().Context(), h.DB, dbUser.ID)
+
+	user := model.User{
+		ID:      dbUser.ID,
+		Email:   dbUser.Email,
+		Name:    dbUser.Nama,
+		Picture: dbUser.Picture,
+	}
+
+	resp, err := h.issueTokenPair(user)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal membuat JWT")
+	}
 	return c.JSON(http.StatusOK, resp)
 }
 
