@@ -7,34 +7,43 @@ import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Aktivitas, daftarJabatan, dummyAktivitas } from "@/lib/abk-data";
+import { api, type Aktivitas } from "@/lib/api";
 import { ClipboardList, Download, FileSpreadsheet, Upload } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function InputAktivitasPage() {
-  const [aktivitasList, setAktivitasList] = useState<Aktivitas[]>(dummyAktivitas);
+  const [aktivitasList, setAktivitasList] = useState<Aktivitas[]>([]);
 
-  const handleAddAktivitas = (data: AktivitasFormData) => {
-    const jabatan = daftarJabatan.find((j) => j.id === data.jabatanId);
-    const newAktivitas: Aktivitas = {
-      id: `${Date.now()}`,
-      jabatanId: data.jabatanId,
-      namaJabatan: jabatan?.nama || "",
-      uraianTugas: data.uraianTugas,
+  const fetchData = useCallback(async () => {
+    try {
+      const data = await api.aktivitas.list();
+      setAktivitasList(data);
+    } catch {
+      // keep previous data
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleAddAktivitas = async (data: AktivitasFormData) => {
+    await api.aktivitas.create({
+      jabatan_id: data.jabatanId,
+      uraian_tugas: data.uraianTugas,
       satuan: data.satuan,
-      normaWaktu: data.normaWaktu,
-      targetKuantitas: data.targetKuantitas,
+      norma_waktu: data.normaWaktu,
+      target_kuantitas: data.targetKuantitas,
       frekuensi: data.frekuensi,
       kategori: data.kategori,
-    };
-    setAktivitasList([...aktivitasList, newAktivitas]);
+    });
+    fetchData();
   };
 
-  const handleDeleteAktivitas = (id: string) => {
-    setAktivitasList(aktivitasList.filter((a) => a.id !== id));
+  const handleDeleteAktivitas = async (id: string) => {
+    await api.aktivitas.delete(id);
+    fetchData();
   };
 
-  const totalJabatan = new Set(aktivitasList.map((a) => a.jabatanId)).size;
+  const totalJabatan = new Set(aktivitasList.map((a) => a.jabatan_id)).size;
 
   return (
     <AdminPageShell>
@@ -99,7 +108,7 @@ export default function InputAktivitasPage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-2xl font-bold">
-                    {new Set(aktivitasList.map((a) => a.jabatanId)).size}
+                    {totalJabatan}
                   </p>
                   <p className="text-xs text-muted-foreground">jabatan berbeda</p>
                 </CardContent>

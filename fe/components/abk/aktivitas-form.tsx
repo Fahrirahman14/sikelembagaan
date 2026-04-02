@@ -1,28 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { daftarOPD, daftarJabatan } from "@/lib/abk-data";
+import { Textarea } from "@/components/ui/textarea";
+import { api, type Jabatan, type OPD } from "@/lib/api";
+import { Plus } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface AktivitasFormProps {
   onSubmit: (data: AktivitasFormData) => void;
@@ -55,14 +55,21 @@ const satuanList = [
 export function AktivitasForm({ onSubmit }: AktivitasFormProps) {
   const [open, setOpen] = useState(false);
   const [selectedOPD, setSelectedOPD] = useState("");
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
   const [formData, setFormData] = useState<Partial<AktivitasFormData>>({
     frekuensi: "bulanan",
     kategori: "utama",
   });
 
-  const filteredJabatan = daftarJabatan.filter(
-    (j) => j.opdId === selectedOPD || !selectedOPD
-  );
+  useEffect(() => {
+    api.opd.list().then(setOpdList).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedOPD) { setJabatanList([]); return; }
+    api.jabatan.list({ opd_id: selectedOPD }).then(setJabatanList).catch(() => {});
+  }, [selectedOPD]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +120,7 @@ export function AktivitasForm({ onSubmit }: AktivitasFormProps) {
                   <SelectValue placeholder="Pilih OPD" />
                 </SelectTrigger>
                 <SelectContent>
-                  {daftarOPD.map((opd) => (
+                  {opdList.map((opd) => (
                     <SelectItem key={opd.id} value={opd.id}>
                       {opd.nama}
                     </SelectItem>
@@ -135,7 +142,7 @@ export function AktivitasForm({ onSubmit }: AktivitasFormProps) {
                   <SelectValue placeholder="Pilih Jabatan" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredJabatan.map((jabatan) => (
+                  {jabatanList.map((jabatan) => (
                     <SelectItem key={jabatan.id} value={jabatan.id}>
                       {jabatan.nama}
                     </SelectItem>

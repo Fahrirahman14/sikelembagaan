@@ -1,8 +1,11 @@
 "use client";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { useEffect } from "react";
 
 interface AdminPageShellProps {
   children: ReactNode;
@@ -15,6 +18,25 @@ export function AdminPageShell({
   mainClassName,
   contentClassName,
 }: AdminPageShellProps) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/publik/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) return null;
+
   return (
     <div className="min-h-screen bg-background">
       <AppSidebar />

@@ -31,7 +31,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { daftarOPD, dokumenAnjabList, type DokumenAnjab } from "@/lib/abk-data";
+import { api, type DokumenAnjab, type OPD } from "@/lib/api";
 import {
     AlertCircle,
     Building2,
@@ -51,7 +51,7 @@ import {
     Trash2,
     User,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function StatusBadge({ status }: { status: DokumenAnjab["status"] }) {
   const variants = {
@@ -70,25 +70,75 @@ function StatusBadge({ status }: { status: DokumenAnjab["status"] }) {
 }
 
 export default function DokumenAnjabPage() {
+  const [items, setItems] = useState<DokumenAnjab[]>([]);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedDokumen, setSelectedDokumen] = useState<DokumenAnjab | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [newOpdId, setNewOpdId] = useState("");
+  const [newPeriode, setNewPeriode] = useState("");
+  const [newNomor, setNewNomor] = useState("");
 
-  const filteredData = dokumenAnjabList.filter((doc) => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [docs, opds] = await Promise.all([api.dokumenAnjab.list(), api.opd.list()]);
+      setItems(docs);
+      setOpdList(opds);
+    } catch {
+      // keep previous data
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleCreate = async () => {
+    if (!newOpdId || !newPeriode) return;
+    await api.dokumenAnjab.create({ opd_id: newOpdId, periode: newPeriode, nomor_dokumen: newNomor });
+    setCreateOpen(false);
+    setNewOpdId(""); setNewPeriode(""); setNewNomor("");
+    fetchData();
+  };
+
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Hapus dokumen ini?")) return;
+    await api.dokumenAnjab.delete(id);
+    fetchData();
+  };
+
+  const handleSubmit = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await api.dokumenAnjab.submit(id);
+    fetchData();
+    if (selectedDokumen?.id === id) setDetailOpen(false);
+  };
+
+  const handleApprove = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    await api.dokumenAnjab.approve(id, { penyetuju: "Admin" });
+    fetchData();
+    if (selectedDokumen?.id === id) setDetailOpen(false);
+  };
+
+  const filteredData = items.filter((doc) => {
     const matchSearch =
-      doc.namaOpd.toLowerCase().includes(search.toLowerCase()) ||
-      doc.nomorDokumen.toLowerCase().includes(search.toLowerCase());
+      (doc.opd_nama ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      doc.nomor_dokumen.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || doc.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
   const stats = {
-    total: dokumenAnjabList.length,
-    draft: dokumenAnjabList.filter((d) => d.status === "draft").length,
-    review: dokumenAnjabList.filter((d) => d.status === "review").length,
-    disetujui: dokumenAnjabList.filter((d) => d.status === "disetujui").length,
+    total: items.length,
+    draft: items.filter((d) => d.status === "draft").length,
+    review: items.filter((d) => d.status === "review").length,
+    disetujui: items.filter((d) => d.status === "disetujui").length,
   };
 
   const openDetail = (doc: DokumenAnjab) => {
@@ -122,12 +172,12 @@ export default function DokumenAnjabPage() {
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                   <Label>OPD</Label>
-                  <Select>
+                  <Select value={newOpdId} onValueChange={setNewOpdId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih OPD" />
                     </SelectTrigger>
                     <SelectContent>
-                      {daftarOPD.map((opd) => (
+                      {opdList.map((opd) => (
                         <SelectItem key={opd.id} value={opd.id}>
                           {opd.nama}
                         </SelectItem>
@@ -137,7 +187,7 @@ export default function DokumenAnjabPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Periode</Label>
-                  <Select>
+                  <Select value={newPeriode} onValueChange={setNewPeriode}>
                     <SelectTrigger>
                       <SelectValue placeholder="Pilih periode" />
                     </SelectTrigger>
@@ -150,12 +200,12 @@ export default function DokumenAnjabPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Nomor Dokumen</Label>
-                  <Input placeholder="DOK/ANJAB/XXX/2024" />
+                  <Input placeholder="DOK/ANJAB/XXX/2024" value={newNomor} onChange={(e) => setNewNomor(e.target.value)} />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCreateOpen(false)}>Batal</Button>
-                <Button onClick={() => setCreateOpen(false)}>Buat Dokumen</Button>
+                <Button onClick={handleCreate}>Buat Dokumen</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -298,19 +348,23 @@ export default function DokumenAnjabPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.map((doc) => (
+                    {loading ? (
+                      <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Memuat data...</TableCell></TableRow>
+                    ) : filteredData.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Tidak ada dokumen</TableCell></TableRow>
+                    ) : filteredData.map((doc) => (
                       <TableRow key={doc.id} className="cursor-pointer border-border/60 hover:bg-background/80" onClick={() => openDetail(doc)}>
-                        <TableCell className="font-mono text-sm">{doc.nomorDokumen}</TableCell>
+                        <TableCell className="font-mono text-sm">{doc.nomor_dokumen}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium text-foreground">{doc.namaOpd}</span>
+                            <span className="font-medium text-foreground">{doc.opd_nama ?? doc.nama_opd}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground">{doc.periode}</TableCell>
-                        <TableCell className="text-center font-medium">{doc.jumlahJabatan}</TableCell>
+                        <TableCell className="text-center font-medium">{doc.jumlah_jabatan}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {new Date(doc.tanggalDibuat).toLocaleDateString("id-ID")}
+                          {new Date(doc.tanggal_dibuat).toLocaleDateString("id-ID")}
                         </TableCell>
                         <TableCell>
                           <StatusBadge status={doc.status} />
@@ -326,7 +380,7 @@ export default function DokumenAnjabPage() {
                             <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={(e) => handleDelete(doc.id, e)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -364,14 +418,14 @@ export default function DokumenAnjabPage() {
                       <FileText className="mt-0.5 h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="text-sm text-muted-foreground">Nomor Dokumen</p>
-                        <p className="font-semibold">{selectedDokumen.nomorDokumen}</p>
+                        <p className="font-semibold">{selectedDokumen.nomor_dokumen}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
                       <Building2 className="mt-0.5 h-5 w-5 text-muted-foreground" />
                       <div>
                         <p className="text-sm text-muted-foreground">OPD</p>
-                        <p className="font-semibold">{selectedDokumen.namaOpd}</p>
+                        <p className="font-semibold">{selectedDokumen.opd_nama ?? selectedDokumen.nama_opd}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -379,7 +433,7 @@ export default function DokumenAnjabPage() {
                       <div>
                         <p className="text-sm text-muted-foreground">Tanggal Dibuat</p>
                         <p className="font-semibold">
-                          {new Date(selectedDokumen.tanggalDibuat).toLocaleDateString("id-ID", {
+                          {new Date(selectedDokumen.tanggal_dibuat).toLocaleDateString("id-ID", {
                             day: "numeric",
                             month: "long",
                             year: "numeric",
@@ -419,7 +473,7 @@ export default function DokumenAnjabPage() {
                     <h4 className="mb-3 font-semibold text-foreground">Ringkasan</h4>
                     <div className="flex items-center justify-center gap-8">
                       <div className="text-center">
-                        <p className="text-3xl font-bold text-primary">{selectedDokumen.jumlahJabatan}</p>
+                        <p className="text-3xl font-bold text-primary">{selectedDokumen.jumlah_jabatan}</p>
                         <p className="text-sm text-muted-foreground">Total Jabatan</p>
                       </div>
                     </div>
@@ -436,13 +490,13 @@ export default function DokumenAnjabPage() {
                       Cetak
                     </Button>
                     {selectedDokumen.status === "draft" && (
-                      <Button className="gap-2">
+                      <Button className="gap-2" onClick={(e) => handleSubmit(selectedDokumen.id, e as React.MouseEvent)}>
                         <Send className="h-4 w-4" />
                         Ajukan Review
                       </Button>
                     )}
                     {selectedDokumen.status === "review" && (
-                      <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+                      <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700" onClick={(e) => handleApprove(selectedDokumen.id, e as React.MouseEvent)}>
                         <CheckCircle className="h-4 w-4" />
                         Setujui
                       </Button>

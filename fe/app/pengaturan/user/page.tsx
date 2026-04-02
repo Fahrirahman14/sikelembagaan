@@ -21,13 +21,10 @@ import {
     adminAuthMethods,
     adminImplementationNotes,
     adminSessionPolicy,
-    filterAdminLoginUsers,
-    getAdminRoleById,
-    getAdminUserStats,
-    getAuthMethodById,
     type AdminAuthMethod,
     type AdminUserStatus
 } from "@/lib/admin-access-data";
+import { api, type AdminUser } from "@/lib/api";
 import {
     BadgeCheck,
     Clock3,
@@ -41,7 +38,7 @@ import {
     Smartphone,
     UserCog,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 function StatusBadge({ status }: { status: AdminUserStatus }) {
   const tone = {
@@ -99,20 +96,35 @@ function LoginMethodCard({
 export default function PengaturanUserPage() {
   const [search, setSearch] = useState("");
   const [authMethods, setAuthMethods] = useState(adminAuthMethods);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+
+  useEffect(() => {
+    api.adminUsers.list().then(setUsers);
+  }, []);
 
   const filteredUsers = useMemo(() => {
-    return filterAdminLoginUsers(search);
-  }, [search]);
+    if (!search) return users;
+    const lc = search.toLowerCase();
+    return users.filter(
+      (u) =>
+        u.nama.toLowerCase().includes(lc) ||
+        u.email.toLowerCase().includes(lc) ||
+        (u.role_nama ?? "").toLowerCase().includes(lc),
+    );
+  }, [users, search]);
 
-  const baseStats = getAdminUserStats();
-  const readiness = Math.min(
-    100,
-    Math.round((authMethods.filter((method) => method.enabled).length / authMethods.length) * 100) + 7,
-  );
-  const stats = {
-    ...baseStats,
-    readiness,
-  };
+  const stats = useMemo(() => {
+    const readiness = Math.min(
+      100,
+      Math.round((authMethods.filter((m) => m.enabled).length / authMethods.length) * 100) + 7,
+    );
+    return {
+      total: users.length,
+      aktif: users.filter((u) => u.status === "aktif").length,
+      mfa: users.filter((u) => u.mfa_enabled).length,
+      readiness,
+    };
+  }, [users, authMethods]);
 
   const setMethodEnabled = (methodId: AdminAuthMethod["id"], enabled: boolean) => {
     setAuthMethods((currentMethods) =>
@@ -277,19 +289,19 @@ export default function PengaturanUserPage() {
                             <p className="text-sm text-muted-foreground">{user.email}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{getAdminRoleById(user.roleId)?.nama ?? "Tanpa role"}</TableCell>
+                        <TableCell>{user.role_nama ?? "Tanpa role"}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {getAuthMethodById(user.authMethodId)?.nama ?? "Belum diatur"}
+                          {user.google_id ? "Google OAuth" : "Email/OTP"}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={user.mfa ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground"}>
-                            {user.mfa ? "Aktif" : "Belum"}
+                          <Badge variant="outline" className={user.mfa_enabled ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground"}>
+                            {user.mfa_enabled ? "Aktif" : "Belum"}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <StatusBadge status={user.status} />
+                          <StatusBadge status={user.status as AdminUserStatus} />
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{user.loginTerakhir}</TableCell>
+                        <TableCell className="text-muted-foreground">{user.last_login_at ?? "-"}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

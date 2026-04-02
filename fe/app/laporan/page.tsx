@@ -22,7 +22,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { dokumenAnjabList, dummyLaporan, opdDetailList } from "@/lib/abk-data";
+import { api, type DashboardSummary, type DokumenAnjab, type LaporanABK, type RekapOPD } from "@/lib/api";
 import {
     BarChart3,
     Building2,
@@ -38,35 +38,28 @@ import {
     TrendingUp,
     Users
 } from "lucide-react";
-import { useState } from "react";
-
-// Summary stats
-const summaryStats = {
-  totalOPD: opdDetailList.length,
-  totalJabatan: opdDetailList.reduce((sum, o) => sum + o.totalJabatan, 0),
-  totalPegawai: opdDetailList.reduce((sum, o) => sum + o.totalPegawai, 0),
-  anjabSelesai: opdDetailList.filter((o) => o.statusAnjab === "selesai").length,
-  abkSelesai: opdDetailList.filter((o) => o.statusAbk === "selesai").length,
-  kebutuhanTotal: dummyLaporan.reduce((sum, l) => sum + l.totalKebutuhanPegawai, 0),
-  existingTotal: dummyLaporan.reduce((sum, l) => sum + l.totalPegawaiExisting, 0),
-};
-
-const rekapPerOPD = opdDetailList.map((opd) => {
-  const laporan = dummyLaporan.find((l) => l.opdId === opd.id);
-  return {
-    ...opd,
-    kebutuhanPegawai: laporan?.totalKebutuhanPegawai || 0,
-    efisiensi: laporan?.efisiensi || 0,
-  };
-});
+import { useEffect, useState } from "react";
 
 export default function LaporanPage() {
   const [periode, setPeriode] = useState("2024");
   const [reportType, setReportType] = useState("all");
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [rekapList, setRekapList] = useState<RekapOPD[]>([]);
+  const [dokumenList, setDokumenList] = useState<DokumenAnjab[]>([]);
+  const [laporanList, setLaporanList] = useState<LaporanABK[]>([]);
 
-  const selisihPegawai = summaryStats.kebutuhanTotal - summaryStats.existingTotal;
-  const persentaseAnjab = (summaryStats.anjabSelesai / summaryStats.totalOPD) * 100;
-  const persentaseAbk = (summaryStats.abkSelesai / summaryStats.totalOPD) * 100;
+  useEffect(() => {
+    api.dashboard.summary().then(setSummary);
+    api.dashboard.rekapOpd().then(setRekapList);
+    api.dokumenAnjab.list().then(setDokumenList);
+    api.laporanAbk.list().then(setLaporanList);
+  }, []);
+
+  const kebutuhanTotal = laporanList.reduce((sum, l) => sum + l.total_kebutuhan_pegawai, 0);
+  const existingTotal = laporanList.reduce((sum, l) => sum + l.total_pegawai_existing, 0);
+  const selisihPegawai = kebutuhanTotal - existingTotal;
+  const persentaseAnjab = summary ? (summary.anjab_selesai / (summary.total_opd || 1)) * 100 : 0;
+  const persentaseAbk = summary ? (summary.abk_selesai / (summary.total_opd || 1)) * 100 : 0;
 
   return (
     <AdminPageShell>
@@ -93,7 +86,7 @@ export default function LaporanPage() {
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 Kebutuhan total
               </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{summaryStats.kebutuhanTotal}</p>
+              <p className="mt-3 text-3xl font-semibold text-foreground">{kebutuhanTotal}</p>
               <p className="mt-1 text-sm text-muted-foreground">kebutuhan pegawai</p>
             </div>
             <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
@@ -158,7 +151,7 @@ export default function LaporanPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total OPD</p>
-                    <p className="text-2xl font-bold text-foreground">{summaryStats.totalOPD}</p>
+                    <p className="text-2xl font-bold text-foreground">{summary?.total_opd ?? 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -171,7 +164,7 @@ export default function LaporanPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Jabatan</p>
-                    <p className="text-2xl font-bold text-foreground">{summaryStats.totalJabatan}</p>
+                    <p className="text-2xl font-bold text-foreground">{summary?.total_jabatan ?? 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -184,7 +177,7 @@ export default function LaporanPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Pegawai</p>
-                    <p className="text-2xl font-bold text-foreground">{summaryStats.totalPegawai}</p>
+                    <p className="text-2xl font-bold text-foreground">{summary?.total_pegawai ?? 0}</p>
                   </div>
                 </div>
               </CardContent>
@@ -225,7 +218,7 @@ export default function LaporanPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">
-                      {summaryStats.anjabSelesai} dari {summaryStats.totalOPD} OPD
+                      {summary?.anjab_selesai ?? 0} dari {summary?.total_opd ?? 0} OPD
                     </span>
                     <span className="text-lg font-bold text-primary">{persentaseAnjab.toFixed(0)}%</span>
                   </div>
@@ -233,15 +226,15 @@ export default function LaporanPage() {
                   <div className="flex justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                      <span>Selesai: {summaryStats.anjabSelesai}</span>
+                      <span>Selesai: {summary?.anjab_selesai ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full bg-accent" />
-                      <span>Proses: {opdDetailList.filter((o) => o.statusAnjab === "proses").length}</span>
+                      <span>Proses: {summary?.anjab_proses ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full bg-muted" />
-                      <span>Belum: {opdDetailList.filter((o) => o.statusAnjab === "belum").length}</span>
+                      <span>Belum: {(summary?.total_opd ?? 0) - (summary?.anjab_selesai ?? 0) - (summary?.anjab_proses ?? 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -260,7 +253,7 @@ export default function LaporanPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">
-                      {summaryStats.abkSelesai} dari {summaryStats.totalOPD} OPD
+                      {summary?.abk_selesai ?? 0} dari {summary?.total_opd ?? 0} OPD
                     </span>
                     <span className="text-lg font-bold text-accent-foreground">{persentaseAbk.toFixed(0)}%</span>
                   </div>
@@ -268,15 +261,15 @@ export default function LaporanPage() {
                   <div className="flex justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full bg-emerald-500" />
-                      <span>Selesai: {summaryStats.abkSelesai}</span>
+                      <span>Selesai: {summary?.abk_selesai ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full bg-accent" />
-                      <span>Proses: {opdDetailList.filter((o) => o.statusAbk === "proses").length}</span>
+                      <span>Proses: {summary?.abk_proses ?? 0}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="h-3 w-3 rounded-full bg-muted" />
-                      <span>Belum: {opdDetailList.filter((o) => o.statusAbk === "belum").length}</span>
+                      <span>Belum: {(summary?.total_opd ?? 0) - (summary?.abk_selesai ?? 0) - (summary?.abk_proses ?? 0)}</span>
                     </div>
                   </div>
                 </div>
@@ -326,50 +319,42 @@ export default function LaporanPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {rekapPerOPD.map((opd, index) => (
+                        {rekapList.map((opd, index) => (
                           <TableRow key={opd.id} className="transition-colors hover:bg-muted/30">
                             <TableCell>{index + 1}</TableCell>
                             <TableCell className="font-medium">{opd.nama}</TableCell>
-                            <TableCell className="text-center">{opd.totalJabatan}</TableCell>
-                            <TableCell className="text-center">{opd.totalPegawai}</TableCell>
-                            <TableCell className="text-center">{opd.kebutuhanPegawai || "-"}</TableCell>
+                            <TableCell className="text-center">{opd.total_jabatan}</TableCell>
+                            <TableCell className="text-center">{opd.total_pegawai}</TableCell>
+                            <TableCell className="text-center">-</TableCell>
                             <TableCell className="text-center">
                               <Badge
                                 variant="outline"
                                 className={
-                                  opd.statusAnjab === "selesai"
+                                  opd.status_anjab === "selesai"
                                     ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                                    : opd.statusAnjab === "proses"
+                                    : opd.status_anjab === "proses"
                                     ? "bg-accent/30 text-accent-foreground border-accent/40"
                                     : "bg-muted text-muted-foreground"
                                 }
                               >
-                                {opd.statusAnjab === "selesai" ? "Selesai" : opd.statusAnjab === "proses" ? "Proses" : "Belum"}
+                                {opd.status_anjab === "selesai" ? "Selesai" : opd.status_anjab === "proses" ? "Proses" : "Belum"}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
                               <Badge
                                 variant="outline"
                                 className={
-                                  opd.statusAbk === "selesai"
+                                  opd.status_abk === "selesai"
                                     ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                                    : opd.statusAbk === "proses"
+                                    : opd.status_abk === "proses"
                                     ? "bg-accent/30 text-accent-foreground border-accent/40"
                                     : "bg-muted text-muted-foreground"
                                 }
                               >
-                                {opd.statusAbk === "selesai" ? "Selesai" : opd.statusAbk === "proses" ? "Proses" : "Belum"}
+                                {opd.status_abk === "selesai" ? "Selesai" : opd.status_abk === "proses" ? "Proses" : "Belum"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-center">
-                              {opd.efisiensi > 0 ? (
-                                <span className={opd.efisiensi >= 90 ? "text-emerald-600 font-medium" : "text-accent-foreground"}>
-                                  {opd.efisiensi.toFixed(1)}%
-                                </span>
-                              ) : (
-                                "-"
-                              )}
-                            </TableCell>
+                            <TableCell className="text-center">-</TableCell>
                             <TableCell className="text-right">
                               <Button variant="ghost" size="icon">
                                 <Eye className="h-4 w-4" />
@@ -405,13 +390,13 @@ export default function LaporanPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {dokumenAnjabList.map((doc, index) => (
+                        {dokumenList.map((doc, index) => (
                           <TableRow key={doc.id} className="transition-colors hover:bg-muted/30">
                             <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-mono text-sm">{doc.nomorDokumen}</TableCell>
-                            <TableCell className="font-medium">{doc.namaOpd}</TableCell>
+                            <TableCell className="font-mono text-sm">{doc.nomor_dokumen}</TableCell>
+                            <TableCell className="font-medium">{doc.opd_nama ?? doc.nama_opd}</TableCell>
                             <TableCell>{doc.periode}</TableCell>
-                            <TableCell className="text-center">{doc.jumlahJabatan}</TableCell>
+                            <TableCell className="text-center">{doc.jumlah_jabatan}</TableCell>
                             <TableCell>
                               <Badge
                                 variant="outline"
@@ -470,14 +455,14 @@ export default function LaporanPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {dummyLaporan.map((lap, index) => (
-                          <TableRow key={lap.opdId} className="transition-colors hover:bg-muted/30">
+                        {laporanList.map((lap, index) => (
+                          <TableRow key={lap.id} className="transition-colors hover:bg-muted/30">
                             <TableCell>{index + 1}</TableCell>
-                            <TableCell className="font-medium">{lap.namaOpd}</TableCell>
+                            <TableCell className="font-medium">{lap.opd_nama}</TableCell>
                             <TableCell>{lap.periode}</TableCell>
-                            <TableCell className="text-center">{lap.totalJabatan}</TableCell>
-                            <TableCell className="text-center">{lap.totalKebutuhanPegawai}</TableCell>
-                            <TableCell className="text-center">{lap.totalPegawaiExisting}</TableCell>
+                            <TableCell className="text-center">{lap.total_jabatan}</TableCell>
+                            <TableCell className="text-center">{lap.total_kebutuhan_pegawai}</TableCell>
+                            <TableCell className="text-center">{lap.total_pegawai_existing}</TableCell>
                             <TableCell className="text-center">
                               <span className={lap.efisiensi >= 95 ? "text-emerald-600 font-medium" : lap.efisiensi >= 85 ? "text-accent-foreground" : "text-destructive"}>
                                 {lap.efisiensi.toFixed(1)}%

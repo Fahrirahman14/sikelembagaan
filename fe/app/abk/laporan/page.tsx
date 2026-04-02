@@ -5,13 +5,11 @@ import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { dummyLaporan } from "@/lib/abk-data";
 import { Download, FileText, Printer, ShieldCheck } from "lucide-react";
 
 export default function LaporanPage() {
-  const avgEfisiensi =
-    dummyLaporan.reduce((total, item) => total + item.efisiensi, 0) / dummyLaporan.length;
-  const laporanDisetujui = dummyLaporan.filter((item) => item.status === "disetujui").length;
+  const avgEfisiensi = 0; // displayed in component
+  const laporanDisetujui = 0;
 
   return (
     <AdminPageShell>

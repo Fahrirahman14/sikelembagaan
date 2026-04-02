@@ -28,7 +28,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { dokumenSAKIPList, NilaiSAKIP, nilaiSAKIPList } from "@/lib/abk-data";
+import { api, type NilaiSAKIP as ApiNilaiSAKIP, type DokumenSAKIP } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
     Award,
@@ -43,7 +43,7 @@ import {
     Sparkles,
     TrendingUp,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function getPredikatColor(predikat: string) {
   switch (predikat) {
@@ -92,27 +92,45 @@ function getJenisDokumenLabel(jenis: string) {
   return labels[jenis] || jenis;
 }
 
+function getKomponen(nilaiSakip: ApiNilaiSAKIP) {
+  const k = (nilaiSakip.komponen_nilai as Record<string, number> | null) ?? {};
+  return {
+    perencanaan: k.perencanaan ?? 0,
+    pengukuran: k.pengukuran ?? 0,
+    pelaporan: k.pelaporan ?? 0,
+    evaluasi: k.evaluasi ?? 0,
+    capaian: k.capaian ?? 0,
+  };
+}
+
 export default function PublicSAKIPPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedOPD, setSelectedOPD] = useState<NilaiSAKIP | null>(null);
+  const [selectedOPD, setSelectedOPD] = useState<ApiNilaiSAKIP | null>(null);
+  const [nilaiList, setNilaiList] = useState<ApiNilaiSAKIP[]>([]);
+  const [dokumenList, setDokumenList] = useState<DokumenSAKIP[]>([]);
 
-  const totalOPD = nilaiSAKIPList.length;
-  const avgNilai = nilaiSAKIPList.reduce((sum, n) => sum + n.nilaiTotal, 0) / totalOPD;
-  const predikatA = nilaiSAKIPList.filter((n) => n.predikat === "A" || n.predikat === "AA").length;
-  const predikatBB = nilaiSAKIPList.filter((n) => n.predikat === "BB" || n.predikat === "B").length;
+  useEffect(() => {
+    api.nilaiSakip.list().then(setNilaiList);
+    api.dokumenSakip.list().then(setDokumenList);
+  }, []);
 
-  const years = Array.from(new Set(nilaiSAKIPList.map((n) => n.tahun))).sort((a, b) => b - a);
+  const totalOPD = nilaiList.length;
+  const avgNilai = totalOPD > 0 ? nilaiList.reduce((sum, n) => sum + n.nilai_total, 0) / totalOPD : 0;
+  const predikatA = nilaiList.filter((n) => n.predikat === "A" || n.predikat === "AA").length;
+  const predikatBB = nilaiList.filter((n) => n.predikat === "BB" || n.predikat === "B").length;
 
-  const filteredNilai = nilaiSAKIPList.filter((nilai) => {
-    const matchSearch = nilai.namaOpd.toLowerCase().includes(searchTerm.toLowerCase());
+  const years = Array.from(new Set(nilaiList.map((n) => n.tahun))).sort((a, b) => b - a);
+
+  const filteredNilai = nilaiList.filter((nilai) => {
+    const matchSearch = (nilai.opd_nama ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchYear = selectedYear === "all" || nilai.tahun.toString() === selectedYear;
     return matchSearch && matchYear;
   });
 
-  const filteredDokumen = dokumenSAKIPList.filter((dok) => {
-    const matchSearch = dok.namaOpd.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      dok.namaDokumen.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredDokumen = dokumenList.filter((dok) => {
+    const matchSearch = (dok.opd_nama ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      dok.nama_dokumen.toLowerCase().includes(searchTerm.toLowerCase());
     const matchYear = selectedYear === "all" || dok.tahun.toString() === selectedYear;
     return matchSearch && matchYear;
   });
@@ -121,7 +139,7 @@ export default function PublicSAKIPPage() {
     searchTerm ? `Pencarian: ${searchTerm}` : null,
     selectedYear !== "all" ? `Tahun: ${selectedYear}` : null,
   ].filter((value): value is string => Boolean(value));
-  const topScore = [...filteredNilai].sort((a, b) => b.nilaiTotal - a.nilaiTotal)[0];
+  const topScore = [...filteredNilai].sort((a, b) => b.nilai_total - a.nilai_total)[0];
   const filterAnimationKey = `${searchTerm}-${selectedYear}`;
 
   const resetFilters = () => {
@@ -222,17 +240,17 @@ export default function PublicSAKIPPage() {
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                     <p className="text-sm text-slate-400">Nilai tertinggi pada hasil tersaring</p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {topScore?.namaOpd ?? "Belum ada data"}
+                      {topScore?.opd_nama ?? "Belum ada data"}
                     </p>
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-slate-300">Nilai total</span>
                         <span className="font-medium text-white">
-                          {topScore?.nilaiTotal.toFixed(2) ?? "0.00"}
+                          {topScore?.nilai_total.toFixed(2) ?? "0.00"}
                         </span>
                       </div>
                       <Progress
-                        value={Math.min(100, topScore?.nilaiTotal ?? 0)}
+                        value={Math.min(100, topScore?.nilai_total ?? 0)}
                         className="h-2.5 bg-white/10"
                       />
                     </div>
@@ -424,14 +442,14 @@ export default function PublicSAKIPPage() {
                       ) : (
                         filteredNilai.map((nilai) => (
                           <TableRow key={nilai.id}>
-                            <TableCell className="font-medium">{nilai.namaOpd}</TableCell>
+                            <TableCell className="font-medium">{nilai.opd_nama}</TableCell>
                             <TableCell className="text-center">{nilai.tahun}</TableCell>
-                            <TableCell className="text-center">{nilai.nilaiPerencanaan}</TableCell>
-                            <TableCell className="text-center">{nilai.nilaiPengukuran}</TableCell>
-                            <TableCell className="text-center">{nilai.nilaiPelaporan}</TableCell>
-                            <TableCell className="text-center">{nilai.nilaiEvaluasi}</TableCell>
-                            <TableCell className="text-center">{nilai.nilaiCapaian}</TableCell>
-                            <TableCell className="text-center font-bold">{nilai.nilaiTotal}</TableCell>
+                            <TableCell className="text-center">{getKomponen(nilai).perencanaan}</TableCell>
+                            <TableCell className="text-center">{getKomponen(nilai).pengukuran}</TableCell>
+                            <TableCell className="text-center">{getKomponen(nilai).pelaporan}</TableCell>
+                            <TableCell className="text-center">{getKomponen(nilai).evaluasi}</TableCell>
+                            <TableCell className="text-center">{getKomponen(nilai).capaian}</TableCell>
+                            <TableCell className="text-center font-bold">{nilai.nilai_total}</TableCell>
                             <TableCell className="text-center">
                               <Badge className={cn("rounded-full border px-3 py-1 font-semibold", getPredikatColor(nilai.predikat))}>
                                 {nilai.predikat}
@@ -487,26 +505,26 @@ export default function PublicSAKIPPage() {
                       ) : (
                         filteredDokumen.map((dok) => (
                           <TableRow key={dok.id}>
-                            <TableCell className="font-medium">{dok.namaOpd}</TableCell>
+                            <TableCell className="font-medium">{dok.opd_nama}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="rounded-full">
-                                {getJenisDokumenLabel(dok.jenisDokumen)}
+                                {getJenisDokumenLabel(dok.jenis_dokumen)}
                               </Badge>
                             </TableCell>
-                            <TableCell>{dok.namaDokumen}</TableCell>
+                            <TableCell>{dok.nama_dokumen}</TableCell>
                             <TableCell className="text-center">{dok.tahun}</TableCell>
                             <TableCell className="text-center">
-                              {new Date(dok.uploadedAt).toLocaleDateString("id-ID")}
+                              {dok.created_at ? new Date(dok.created_at).toLocaleDateString("id-ID") : "-"}
                             </TableCell>
                             <TableCell className="text-center">
-                              {dok.linkDokumen && (
+                              {dok.file_path && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   asChild
                                 >
                                   <a
-                                    href={dok.linkDokumen}
+                                    href={dok.file_path}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                   >
@@ -535,7 +553,7 @@ export default function PublicSAKIPPage() {
             <DialogHeader>
               <DialogTitle>Detail Nilai SAKIP</DialogTitle>
               <DialogDescription>
-                {selectedOPD?.namaOpd} - Tahun {selectedOPD?.tahun}
+                {selectedOPD?.opd_nama} - Tahun {selectedOPD?.tahun}
               </DialogDescription>
             </DialogHeader>
             {selectedOPD && (
@@ -543,7 +561,7 @@ export default function PublicSAKIPPage() {
                 <div className={cn("flex items-center justify-between rounded-3xl border p-5", getPredikatSurface(selectedOPD.predikat))}>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Nilai</p>
-                    <p className="text-3xl font-bold text-foreground">{selectedOPD.nilaiTotal}</p>
+                    <p className="text-3xl font-bold text-foreground">{selectedOPD.nilai_total}</p>
                   </div>
                   <Badge className={cn("rounded-full border px-4 py-2 text-lg", getPredikatColor(selectedOPD.predikat))}>
                     Predikat {selectedOPD.predikat}
@@ -552,11 +570,11 @@ export default function PublicSAKIPPage() {
 
                 <div className="grid gap-4 sm:grid-cols-5">
                   {[
-                    { label: "Perencanaan", value: selectedOPD.nilaiPerencanaan, max: 30 },
-                    { label: "Pengukuran", value: selectedOPD.nilaiPengukuran, max: 25 },
-                    { label: "Pelaporan", value: selectedOPD.nilaiPelaporan, max: 15 },
-                    { label: "Evaluasi", value: selectedOPD.nilaiEvaluasi, max: 10 },
-                    { label: "Capaian", value: selectedOPD.nilaiCapaian, max: 20 },
+                    { label: "Perencanaan", value: getKomponen(selectedOPD).perencanaan, max: 30 },
+                    { label: "Pengukuran", value: getKomponen(selectedOPD).pengukuran, max: 25 },
+                    { label: "Pelaporan", value: getKomponen(selectedOPD).pelaporan, max: 15 },
+                    { label: "Evaluasi", value: getKomponen(selectedOPD).evaluasi, max: 10 },
+                    { label: "Capaian", value: getKomponen(selectedOPD).capaian, max: 20 },
                   ].map((item) => (
                     <div key={item.label} className="rounded-2xl border border-border/70 bg-background/80 p-3 text-center">
                       <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -567,21 +585,16 @@ export default function PublicSAKIPPage() {
                   ))}
                 </div>
 
-                {selectedOPD.catatan && (
-                  <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4">
-                    <p className="mb-1 text-sm font-medium text-foreground">Catatan Review</p>
-                    <p className="text-sm text-muted-foreground">{selectedOPD.catatan}</p>
-                  </div>
-                )}
-
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>Direview oleh: {selectedOPD.reviewedBy}</span>
+                  <span>Diunggah oleh: {selectedOPD.uploaded_by ?? "-"}</span>
                   <span>
-                    {new Date(selectedOPD.reviewedAt).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    })}
+                    {selectedOPD.created_at
+                      ? new Date(selectedOPD.created_at).toLocaleDateString("id-ID", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })
+                      : "-"}
                   </span>
                 </div>
               </div>

@@ -1,67 +1,75 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Calculator,
-  Search,
-  Download,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Users,
-  Clock,
-  BarChart3,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import { HasilPerhitungan, daftarOPD, dummyHasilPerhitungan } from "@/lib/abk-data";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { api, type PerhitunganABK } from "@/lib/api";
+import {
+    BarChart3,
+    Calculator,
+    Clock,
+    Download,
+    Minus,
+    Search,
+    TrendingDown,
+    TrendingUp,
+    Users,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 export function PerhitunganABK() {
-  const [data] = useState<HasilPerhitungan[]>(dummyHasilPerhitungan);
+  const [data, setData] = useState<PerhitunganABK[]>([]);
   const [search, setSearch] = useState("");
-  const [filterOPD, setFilterOPD] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+
+  const fetchData = useCallback(async () => {
+    try {
+      const result = await api.perhitungan.list();
+      setData(result);
+    } catch {
+      // keep empty
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filteredData = data.filter((item) => {
     const matchSearch =
-      item.namaJabatan.toLowerCase().includes(search.toLowerCase()) ||
-      item.namaOpd.toLowerCase().includes(search.toLowerCase());
-    const matchOPD = filterOPD === "all" || item.opdId === filterOPD;
+      (item.jabatan_nama ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || item.keterangan === filterStatus;
-    return matchSearch && matchOPD && matchStatus;
+    return matchSearch && matchStatus;
   });
 
   // Ringkasan statistik
   const totalKebutuhan = filteredData.reduce(
-    (sum, item) => sum + item.kebutuhanPegawai,
+    (sum, item) => sum + item.kebutuhan_pegawai,
     0
   );
   const totalExisting = filteredData.reduce(
-    (sum, item) => sum + item.pegawaiExisting,
+    (sum, item) => sum + item.pegawai_existing,
     0
   );
   const totalSelisih = filteredData.reduce((sum, item) => sum + item.selisih, 0);
   const avgBebanKerja =
     filteredData.length > 0
-      ? filteredData.reduce((sum, item) => sum + item.bebanKerja, 0) /
+      ? filteredData.reduce((sum, item) => sum + item.beban_kerja, 0) /
         filteredData.length
       : 0;
 
@@ -186,19 +194,6 @@ export function PerhitunganABK() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Select value={filterOPD} onValueChange={setFilterOPD}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Pilih OPD" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua OPD</SelectItem>
-              {daftarOPD.map((opd) => (
-                <SelectItem key={opd.id} value={opd.id}>
-                  {opd.nama}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
@@ -210,9 +205,9 @@ export function PerhitunganABK() {
               <SelectItem value="Sesuai">Sesuai</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={fetchData}>
             <Calculator className="h-4 w-4" />
-            Hitung Ulang
+            Muat Ulang
           </Button>
           <Button variant="outline" className="gap-2">
             <Download className="h-4 w-4" />
@@ -228,7 +223,6 @@ export function PerhitunganABK() {
             <TableRow>
               <TableHead className="w-[50px]">No</TableHead>
               <TableHead>Jabatan</TableHead>
-              <TableHead>OPD</TableHead>
               <TableHead className="text-center">Waktu Kerja (jam/th)</TableHead>
               <TableHead className="text-center">Beban Kerja</TableHead>
               <TableHead className="text-center">Kebutuhan</TableHead>
@@ -248,30 +242,27 @@ export function PerhitunganABK() {
               </TableRow>
             ) : (
               filteredData.map((item, index) => (
-                <TableRow key={item.jabatanId}>
+                <TableRow key={item.id}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
                   <TableCell className="font-medium">
-                    {item.namaJabatan}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {item.namaOpd}
+                    {item.jabatan_nama}
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
                       <Clock className="h-3 w-3 text-muted-foreground" />
-                      {item.totalWaktuKerja.toLocaleString("id-ID")}
+                      {item.total_waktu_kerja.toLocaleString("id-ID")}
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <span className={`font-semibold ${getBebanKerjaColor(item.bebanKerja)}`}>
-                      {item.bebanKerja.toFixed(2)}
+                    <span className={`font-semibold ${getBebanKerjaColor(item.beban_kerja)}`}>
+                      {item.beban_kerja.toFixed(2)}
                     </span>
                   </TableCell>
                   <TableCell className="text-center font-medium">
-                    {item.kebutuhanPegawai}
+                    {item.kebutuhan_pegawai}
                   </TableCell>
                   <TableCell className="text-center">
-                    {item.pegawaiExisting}
+                    {item.pegawai_existing}
                   </TableCell>
                   <TableCell className="text-center">
                     <span

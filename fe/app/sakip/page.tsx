@@ -5,61 +5,50 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { daftarOPD } from "@/lib/abk-data";
+import { api, type DokumenSAKIP, type OPD } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
-  AlertCircle,
-  Award,
-  CheckCircle,
-  Edit,
-  FileText,
-  Link as LinkIcon,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
-  Upload,
+    AlertCircle,
+    Award,
+    CheckCircle,
+    Edit,
+    FileText,
+    Link as LinkIcon,
+    Search,
+    ShieldCheck,
+    Sparkles,
+    Trash2,
+    Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-interface UploadedDocument {
-  id: string;
-  opdId: string;
-  namaOpd: string;
-  namaDokumen: string;
-  jenisDokumen: "renstra" | "renja" | "lakip" | "iku" | "tapkin" | "lainnya";
-  linkDokumen?: string;
-  filePath?: string;
-  tahun: number;
-  uploadedAt: string;
-  uploadedBy: string;
-}
+
 
 interface ReviewScore {
   id: string;
@@ -92,7 +81,7 @@ export default function AdminSAKIPPage() {
   const [jenisFilter, setJenisFilter] = useState("all");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<UploadedDocument | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<DokumenSAKIP | null>(null);
   
   // Form states
   const [uploadForm, setUploadForm] = useState<{
@@ -116,72 +105,39 @@ export default function AdminSAKIPPage() {
     catatan: "",
   });
 
-  // Mock data for uploaded documents
-  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([
-    {
-      id: "DOK001",
-      opdId: "OPD001",
-      namaOpd: "Bappeda",
-      namaDokumen: "Renstra Bappeda 2024-2028",
-      jenisDokumen: "renstra",
-      linkDokumen: "https://example.com/renstra-bappeda",
-      tahun: 2024,
-      uploadedAt: "2024-01-15",
-      uploadedBy: "Admin Bappeda",
-    },
-    {
-      id: "DOK002",
-      opdId: "OPD002",
-      namaOpd: "Diskominfo",
-      namaDokumen: "LAKIP Diskominfo 2023",
-      jenisDokumen: "lakip",
-      filePath: "/uploads/lakip-diskominfo-2023.pdf",
-      tahun: 2023,
-      uploadedAt: "2024-02-01",
-      uploadedBy: "Admin Diskominfo",
-    },
-  ]);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [uploadedDocuments, setUploadedDocuments] = useState<DokumenSAKIP[]>([]);
+  const [reviewScores, setReviewScores] = useState<ReviewScore[]>([]);
 
-  const [reviewScores, setReviewScores] = useState<ReviewScore[]>([
-    {
-      id: "REV001",
-      dokumentId: "DOK001",
-      nilaiReview: 85,
-      catatan: "Dokumen renstra sudah lengkap dan sesuai dengan format",
-      reviewedBy: "Tim Review SAKIP",
-      reviewedAt: "2024-01-20",
-    },
-  ]);
+  useEffect(() => {
+    api.opd.list().then(setOpdList);
+    api.dokumenSakip.list().then(setUploadedDocuments);
+  }, []);
 
   const filteredDocuments = uploadedDocuments.filter((doc) => {
     const matchSearch =
-      doc.namaDokumen.toLowerCase().includes(search.toLowerCase()) ||
-      doc.namaOpd.toLowerCase().includes(search.toLowerCase());
-    const matchOpd = opdFilter === "all" || doc.opdId === opdFilter;
-    const matchJenis = jenisFilter === "all" || doc.jenisDokumen === jenisFilter;
+      doc.nama_dokumen.toLowerCase().includes(search.toLowerCase()) ||
+      (doc.opd_nama ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchOpd = opdFilter === "all" || doc.opd_id === opdFilter;
+    const matchJenis = jenisFilter === "all" || doc.jenis_dokumen === jenisFilter;
     return matchSearch && matchOpd && matchJenis;
   });
 
-  const handleUploadSubmit = () => {
+  const handleUploadSubmit = async () => {
     if (!uploadForm.opdId || !uploadForm.namaDokumen) {
       alert("Mohon isi semua field yang diperlukan");
       return;
     }
-
-    const newDoc: UploadedDocument = {
-      id: `DOK${Date.now()}`,
-      opdId: uploadForm.opdId,
-      namaOpd: daftarOPD.find((o) => o.id === uploadForm.opdId)?.nama || "",
-      namaDokumen: uploadForm.namaDokumen,
-      jenisDokumen: uploadForm.jenisDokumen,
-      linkDokumen: uploadForm.linkDokumen,
-      filePath: uploadForm.filePath,
+    await api.dokumenSakip.create({
+      opd_id: uploadForm.opdId,
+      nama_dokumen: uploadForm.namaDokumen,
+      jenis_dokumen: uploadForm.jenisDokumen,
       tahun: uploadForm.tahun,
-      uploadedAt: new Date().toISOString().split("T")[0],
-      uploadedBy: "Admin",
-    };
-
-    setUploadedDocuments([...uploadedDocuments, newDoc]);
+      file_path: uploadForm.linkDokumen || uploadForm.filePath || "",
+      uploaded_by: "Admin",
+    });
+    const updated = await api.dokumenSakip.list();
+    setUploadedDocuments(updated);
     setUploadForm({
       opdId: "",
       namaDokumen: "",
@@ -214,8 +170,9 @@ export default function AdminSAKIPPage() {
     setSelectedDocument(null);
   };
 
-  const handleDeleteDocument = (id: string) => {
-    setUploadedDocuments(uploadedDocuments.filter((doc) => doc.id !== id));
+  const handleDeleteDocument = async (id: string) => {
+    await api.dokumenSakip.delete(id);
+    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== id));
   };
 
   const getReviewForDocument = (docId: string) => {
@@ -230,11 +187,11 @@ export default function AdminSAKIPPage() {
   const avgReview = reviewScores.length
     ? reviewScores.reduce((total, item) => total + item.nilaiReview, 0) / reviewScores.length
     : 0;
-  const latestDocument = [...uploadedDocuments].sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0];
+  const latestDocument = [...uploadedDocuments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
-      ? `OPD: ${daftarOPD.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
+      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
       : null,
     jenisFilter !== "all" ? `Jenis: ${jenisFilter.toUpperCase()}` : null,
   ].filter((value): value is string => Boolean(value));
@@ -288,10 +245,10 @@ export default function AdminSAKIPPage() {
                         Dokumen terbaru
                       </p>
                       <p className="mt-3 font-semibold text-foreground">
-                        {latestDocument?.namaDokumen ?? "Belum ada dokumen"}
+                        {latestDocument?.nama_dokumen ?? "Belum ada dokumen"}
                       </p>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        {latestDocument?.namaOpd ?? "-"}
+                        {latestDocument?.opd_nama ?? "-"}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-accent p-3 text-accent-foreground">
@@ -332,7 +289,7 @@ export default function AdminSAKIPPage() {
                         <SelectValue placeholder="Pilih OPD" />
                       </SelectTrigger>
                       <SelectContent>
-                        {daftarOPD.map((opd) => (
+                        {opdList.map((opd) => (
                           <SelectItem key={opd.id} value={opd.id}>
                             {opd.nama}
                           </SelectItem>
@@ -361,7 +318,7 @@ export default function AdminSAKIPPage() {
                         onValueChange={(value) =>
                           setUploadForm({
                             ...uploadForm,
-                            jenisDokumen: value as UploadedDocument["jenisDokumen"],
+                            jenisDokumen: value as "renstra" | "renja" | "lakip" | "iku" | "tapkin" | "lainnya",
                           })
                         }
                       >
@@ -531,7 +488,7 @@ export default function AdminSAKIPPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua OPD</SelectItem>
-                    {daftarOPD.map((opd) => (
+                    {opdList.map((opd) => (
                       <SelectItem key={opd.id} value={opd.id}>
                         {opd.nama}
                       </SelectItem>
@@ -598,15 +555,15 @@ export default function AdminSAKIPPage() {
                           <TableRow key={doc.id}>
                             <TableCell>
                               <div>
-                                <p className="font-medium text-foreground">{doc.namaDokumen}</p>
+                                <p className="font-medium text-foreground">{doc.nama_dokumen}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {new Date(doc.uploadedAt).toLocaleDateString("id-ID")}
+                                  {new Date(doc.created_at).toLocaleDateString("id-ID")}
                                 </p>
                               </div>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">{doc.namaOpd}</TableCell>
+                            <TableCell className="text-muted-foreground">{doc.opd_nama}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">{doc.jenisDokumen.toUpperCase()}</Badge>
+                              <Badge variant="outline">{doc.jenis_dokumen.toUpperCase()}</Badge>
                             </TableCell>
                             <TableCell className="text-center">{doc.tahun}</TableCell>
                             <TableCell>
@@ -621,11 +578,11 @@ export default function AdminSAKIPPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
-                              {doc.uploadedBy}
+                              {doc.uploaded_by}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-1">
-                                {doc.linkDokumen && (
+                                {doc.file_path && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
@@ -633,7 +590,7 @@ export default function AdminSAKIPPage() {
                                     title="Buka link dokumen"
                                   >
                                     <a
-                                      href={doc.linkDokumen}
+                                      href={doc.file_path}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                     >
@@ -690,22 +647,22 @@ export default function AdminSAKIPPage() {
           <DialogHeader>
             <DialogTitle>Review Dokumen SAKIP</DialogTitle>
             <DialogDescription>
-              {selectedDocument?.namaOpd} - {selectedDocument?.namaDokumen}
+              {selectedDocument?.opd_nama} - {selectedDocument?.nama_dokumen}
             </DialogDescription>
           </DialogHeader>
           {selectedDocument && (
             <div className="space-y-4 py-4">
               <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
                 <p className="text-sm text-muted-foreground">Dokumen</p>
-                <p className="font-medium text-foreground">{selectedDocument.namaDokumen}</p>
+                <p className="font-medium text-foreground">{selectedDocument.nama_dokumen}</p>
                 <div className="mt-2 grid gap-2 text-sm">
                   <p>
                     <span className="text-muted-foreground">OPD:</span>{" "}
-                    <span className="font-medium">{selectedDocument.namaOpd}</span>
+                    <span className="font-medium">{selectedDocument.opd_nama}</span>
                   </p>
                   <p>
                     <span className="text-muted-foreground">Jenis:</span>{" "}
-                    <span className="font-medium">{selectedDocument.jenisDokumen.toUpperCase()}</span>
+                    <span className="font-medium">{selectedDocument.jenis_dokumen.toUpperCase()}</span>
                   </p>
                   <p>
                     <span className="text-muted-foreground">Tahun:</span>{" "}

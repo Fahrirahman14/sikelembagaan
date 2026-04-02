@@ -11,7 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { daftarOPD, strukturOrganisasiList, type StrukturOrganisasi } from "@/lib/abk-data";
+import { api, type OPD, type StrukturOrganisasi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
     Building2,
@@ -23,7 +23,7 @@ import {
     UserCheck,
     Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface OrgNodeProps {
   node: StrukturOrganisasi;
@@ -33,7 +33,7 @@ interface OrgNodeProps {
 }
 
 function OrgNode({ node, allNodes, expandedNodes, onToggle }: OrgNodeProps) {
-  const childNodes = allNodes.filter((n) => n.parentId === node.id);
+  const childNodes = allNodes.filter((n) => n.parent_id === node.id);
   const hasChildren = childNodes.length > 0;
   const isExpanded = expandedNodes.has(node.id);
 
@@ -93,15 +93,26 @@ function OrgNode({ node, allNodes, expandedNodes, onToggle }: OrgNodeProps) {
 }
 
 export default function StrukturOrganisasiPage() {
-  const [selectedOpd, setSelectedOpd] = useState("OPD001");
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["SO001", "SO002"]));
+  const [selectedOpd, setSelectedOpd] = useState("");
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [filteredStruktur, setFilteredStruktur] = useState<StrukturOrganisasi[]>([]);
 
-  const filteredStruktur = strukturOrganisasiList.filter(
-    (s) => s.opdId === selectedOpd
-  );
-  const rootNodes = filteredStruktur.filter((s) => !s.parentId);
+  useEffect(() => {
+    api.opd.list().then((list) => {
+      setOpdList(list);
+      if (list.length > 0) setSelectedOpd(list[0].id);
+    });
+  }, []);
 
-  const selectedOpdData = daftarOPD.find((o) => o.id === selectedOpd);
+  useEffect(() => {
+    if (selectedOpd) {
+      api.struktur.listByOpd(selectedOpd).then(setFilteredStruktur);
+    }
+  }, [selectedOpd]);
+
+  const rootNodes = filteredStruktur.filter((s) => !s.parent_id);
+  const selectedOpdData = opdList.find((o) => o.id === selectedOpd);
   const filledPositions = filteredStruktur.filter((item) => Boolean(item.nama)).length;
   const emptyPositions = filteredStruktur.length - filledPositions;
 
@@ -173,7 +184,7 @@ export default function StrukturOrganisasiPage() {
                       <SelectValue placeholder="Pilih OPD" />
                     </SelectTrigger>
                     <SelectContent>
-                      {daftarOPD.map((opd) => (
+                      {opdList.map((opd) => (
                         <SelectItem key={opd.id} value={opd.id}>
                           {opd.nama}
                         </SelectItem>

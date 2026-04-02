@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Building2, Eye, EyeOff, Lock, Mail, AlertCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/context/auth-context";
+import { AlertCircle, Building2, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function PublicLoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -24,30 +26,16 @@ export default function PublicLoginPage() {
     setError("");
     setIsLoading(true);
 
-    // Simulasi login - dalam aplikasi real, ini akan memanggil API
     try {
-      // Validasi input
       if (!email || !password) {
         setError("Email dan password harus diisi");
         return;
       }
-
-      // Simulasi delay API
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Mock authentication - untuk demonstrasi
-      if (email && password.length >= 6) {
-        // Simpan ke localStorage atau session (dalam aplikasi real, gunakan secure session/token)
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userEmail", email);
-
-        // Redirect ke dashboard admin atau halaman yang sesuai
-        router.push("/opd/daftar");
-      } else {
-        setError("Email atau password tidak valid");
-      }
-    } catch (err) {
-      setError("Terjadi kesalahan saat login. Silakan coba lagi.");
+      await login(email, password);
+      router.push("/");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat login.";
+      setError(msg === "Unauthorized" ? "Email atau password salah" : msg);
     } finally {
       setIsLoading(false);
     }

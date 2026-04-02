@@ -29,7 +29,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { opdDetailList, type OPDDetail } from "@/lib/abk-data";
+import { api, type OPD } from "@/lib/api";
 import {
     Building2,
     Clock,
@@ -42,7 +42,7 @@ import {
     Search,
     Trash2
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function StatusBadge({ status }: { status: "belum" | "proses" | "selesai" }) {
   const variants = {
@@ -60,26 +60,45 @@ function StatusBadge({ status }: { status: "belum" | "proses" | "selesai" }) {
 }
 
 export default function DaftarOPDPage() {
+  const [items, setItems] = useState<OPD[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedOpd, setSelectedOpd] = useState<OPDDetail | null>(null);
+  const [selectedOpd, setSelectedOpd] = useState<OPD | null>(null);
 
-  const filteredData = opdDetailList.filter((opd) => {
-    const matchSearch =
-      opd.nama.toLowerCase().includes(search.toLowerCase()) ||
-      opd.kode.toLowerCase().includes(search.toLowerCase());
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.opd.list(search || undefined);
+      setItems(data);
+    } catch {
+      // keep previous items on error
+    } finally {
+      setLoading(false);
+    }
+  }, [search]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus OPD ini?")) return;
+    await api.opd.delete(id);
+    fetchData();
+  };
+
+  const filteredData = items.filter((opd) => {
     const matchStatus =
       statusFilter === "all" ||
-      opd.statusAnjab === statusFilter ||
-      opd.statusAbk === statusFilter;
-    return matchSearch && matchStatus;
+      opd.status_anjab === statusFilter ||
+      opd.status_abk === statusFilter;
+    return matchStatus;
   });
 
   const stats = {
-    total: opdDetailList.length,
-    anjabSelesai: opdDetailList.filter((o) => o.statusAnjab === "selesai").length,
-    abkSelesai: opdDetailList.filter((o) => o.statusAbk === "selesai").length,
-    totalPegawai: opdDetailList.reduce((sum, o) => sum + o.totalPegawai, 0),
+    total: items.length,
+    anjabSelesai: items.filter((o) => o.status_anjab === "selesai").length,
+    abkSelesai: items.filter((o) => o.status_abk === "selesai").length,
+    totalPegawai: items.reduce((sum, o) => sum + o.total_pegawai, 0),
   };
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
@@ -245,7 +264,19 @@ export default function DaftarOPDPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.map((opd) => (
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                          Memuat data...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                          Tidak ada data OPD
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredData.map((opd) => (
                       <TableRow key={opd.id} className="transition-colors hover:bg-muted/30">
                         <TableCell className="font-mono text-sm">{opd.kode}</TableCell>
                         <TableCell>
@@ -257,16 +288,16 @@ export default function DaftarOPDPage() {
                         <TableCell>
                           <div>
                             <p className="text-sm text-foreground">{opd.kepala}</p>
-                            <p className="text-xs text-muted-foreground">NIP: {opd.nipKepala}</p>
+                            <p className="text-xs text-muted-foreground">NIP: {opd.nip_kepala}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-center font-medium">{opd.totalPegawai}</TableCell>
-                        <TableCell className="text-center font-medium">{opd.totalJabatan}</TableCell>
+                        <TableCell className="text-center font-medium">{opd.total_pegawai}</TableCell>
+                        <TableCell className="text-center font-medium">{opd.total_jabatan}</TableCell>
                         <TableCell className="text-center">
-                          <StatusBadge status={opd.statusAnjab} />
+                          <StatusBadge status={opd.status_anjab} />
                         </TableCell>
                         <TableCell className="text-center">
-                          <StatusBadge status={opd.statusAbk} />
+                          <StatusBadge status={opd.status_abk} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -310,26 +341,26 @@ export default function DaftarOPDPage() {
                                       <div>
                                         <Label className="text-muted-foreground">Kepala</Label>
                                         <p className="font-medium">{selectedOpd.kepala}</p>
-                                        <p className="text-sm text-muted-foreground">NIP: {selectedOpd.nipKepala}</p>
+                                        <p className="text-sm text-muted-foreground">NIP: {selectedOpd.nip_kepala}</p>
                                       </div>
                                       <div>
                                         <Label className="text-muted-foreground">Total Pegawai</Label>
-                                        <p className="font-medium">{selectedOpd.totalPegawai}</p>
+                                        <p className="font-medium">{selectedOpd.total_pegawai}</p>
                                       </div>
                                       <div>
                                         <Label className="text-muted-foreground">Total Jabatan</Label>
-                                        <p className="font-medium">{selectedOpd.totalJabatan}</p>
+                                        <p className="font-medium">{selectedOpd.total_jabatan}</p>
                                       </div>
                                       <div>
                                         <Label className="text-muted-foreground">Status Anjab</Label>
                                         <div className="mt-1">
-                                          <StatusBadge status={selectedOpd.statusAnjab} />
+                                          <StatusBadge status={selectedOpd.status_anjab} />
                                         </div>
                                       </div>
                                       <div>
                                         <Label className="text-muted-foreground">Status ABK</Label>
                                         <div className="mt-1">
-                                          <StatusBadge status={selectedOpd.statusAbk} />
+                                          <StatusBadge status={selectedOpd.status_abk} />
                                         </div>
                                       </div>
                                     </div>
@@ -340,7 +371,12 @@ export default function DaftarOPDPage() {
                             <Button variant="ghost" size="icon">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => handleDelete(opd.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

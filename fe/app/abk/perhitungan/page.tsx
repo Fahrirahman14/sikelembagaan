@@ -6,20 +6,29 @@ import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { dummyHasilPerhitungan } from "@/lib/abk-data";
+import { api, type PerhitunganABK as PerhitunganABKType } from "@/lib/api";
 import { BarChart3, Gauge } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function PerhitunganPage() {
-  const avgBeban =
-    dummyHasilPerhitungan.reduce((total, item) => total + item.bebanKerja, 0) /
-    dummyHasilPerhitungan.length;
-  const totalKebutuhan = dummyHasilPerhitungan.reduce(
-    (total, item) => total + item.kebutuhanPegawai,
-    0,
-  );
-  const posisiKekurangan = dummyHasilPerhitungan.filter(
-    (item) => item.keterangan === "Kekurangan",
-  ).length;
+  const [items, setItems] = useState<PerhitunganABKType[]>([]);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const data = await api.perhitungan.list();
+      setItems(data);
+    } catch {
+      // keep empty
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const avgBeban = items.length
+    ? items.reduce((total, item) => total + item.beban_kerja, 0) / items.length
+    : 0;
+  const totalKebutuhan = items.reduce((total, item) => total + item.kebutuhan_pegawai, 0);
+  const posisiKekurangan = items.filter((item) => item.keterangan === "Kekurangan").length;
 
   return (
     <AdminPageShell>

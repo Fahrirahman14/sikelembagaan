@@ -17,10 +17,9 @@ import {
 import {
     adminPermissionMatrix,
     adminRoles,
-    getAdminRoleMemberCount,
-    getAdminRoleStats,
     type AdminRole,
 } from "@/lib/admin-access-data";
+import { api, type Role as ApiRole } from "@/lib/api";
 import {
     CheckCheck,
     KeyRound,
@@ -32,6 +31,7 @@ import {
     ShieldCheck,
     Users,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 function LevelBadge({ level }: { level: AdminRole["level"] }) {
   const tone = {
@@ -58,7 +58,16 @@ function PermissionBadge({ allowed }: { allowed: boolean }) {
 }
 
 export default function RoleAdminPage() {
-  const { totalAdmins, averageCoverage, totalRoles } = getAdminRoleStats();
+  const [roles, setRoles] = useState<ApiRole[]>([]);
+  const [totalAdmins, setTotalAdmins] = useState(0);
+
+  useEffect(() => {
+    api.roles.list().then(setRoles);
+    api.adminUsers.list().then((users) => setTotalAdmins(users.length));
+  }, []);
+
+  const totalRoles = roles.length;
+  const averageCoverage = 0;
 
   return (
     <AdminPageShell>
@@ -153,16 +162,16 @@ export default function RoleAdminPage() {
         </Card>
       </div>
 
-      <div className="space-y-6">
+        <div className="space-y-6">
         <div className="grid gap-6 xl:grid-cols-2">
-          {adminRoles.map((role) => (
+          {roles.map((role) => (
             <Card key={role.id} className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-lg font-semibold text-foreground">{role.nama}</p>
-                      <LevelBadge level={role.level} />
+                      <LevelBadge level={role.level as AdminRole["level"]} />
                     </div>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">{role.deskripsi}</p>
                   </div>
@@ -175,21 +184,13 @@ export default function RoleAdminPage() {
                   <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
                     <p className="text-sm text-muted-foreground">Jumlah Anggota</p>
                     <p className="mt-2 text-2xl font-semibold text-foreground">
-                      {getAdminRoleMemberCount(role.id)}
+                      {totalAdmins}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/70 p-4">
                     <p className="text-sm text-muted-foreground">Cakupan Hak Akses</p>
-                    <p className="mt-2 text-2xl font-semibold text-foreground">{role.coverage}%</p>
+                    <p className="mt-2 text-2xl font-semibold text-foreground">-</p>
                   </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Kelengkapan izin</span>
-                    <span className="font-medium text-foreground">{role.coverage}%</span>
-                  </div>
-                  <Progress value={role.coverage} className="h-2.5" />
                 </div>
               </CardContent>
             </Card>

@@ -28,7 +28,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { daftarOPD, jabatanDetailList, type JabatanDetail } from "@/lib/abk-data";
+import { api, type Jabatan, type OPD } from "@/lib/api";
 import {
     Briefcase,
     Building2,
@@ -42,7 +42,7 @@ import {
     Search,
     Target,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Extended uraian jabatan data
 const uraianJabatanData = [
@@ -104,14 +104,21 @@ const uraianJabatanData = [
 export default function UraianJabatanPage() {
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
-  const [selectedJabatan, setSelectedJabatan] = useState<JabatanDetail | null>(null);
+  const [selectedJabatan, setSelectedJabatan] = useState<Jabatan | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
 
-  const filteredData = jabatanDetailList.filter((jabatan) => {
+  useEffect(() => {
+    api.opd.list().then(setOpdList);
+    api.jabatan.list().then(setJabatanList);
+  }, []);
+
+  const filteredData = jabatanList.filter((jabatan) => {
     const matchSearch =
-      jabatan.namaJabatan.toLowerCase().includes(search.toLowerCase()) ||
-      jabatan.kodeJabatan.includes(search);
-    const matchOpd = opdFilter === "all" || jabatan.opdId === opdFilter;
+      jabatan.nama.toLowerCase().includes(search.toLowerCase()) ||
+      jabatan.kode.includes(search);
+    const matchOpd = opdFilter === "all" || jabatan.opd_id === opdFilter;
     return matchSearch && matchOpd;
   });
 
@@ -124,14 +131,14 @@ export default function UraianJabatanPage() {
     };
   };
 
-  const openDetail = (jabatan: JabatanDetail) => {
+  const openDetail = (jabatan: Jabatan) => {
     setSelectedJabatan(jabatan);
     setDetailOpen(true);
   };
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
-      ? `OPD: ${daftarOPD.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
+      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
       : null,
   ].filter((value): value is string => Boolean(value));
 
@@ -160,14 +167,14 @@ export default function UraianJabatanPage() {
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 Jabatan terdata
               </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{jabatanDetailList.length}</p>
+              <p className="mt-3 text-3xl font-semibold text-foreground">{jabatanList.length}</p>
             </div>
             <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 Dokumen lengkap
               </p>
               <p className="mt-3 text-3xl font-semibold text-foreground">
-                {jabatanDetailList.filter((j) => j.statusAnjab === "disetujui").length}
+                {jabatanList.filter((j) => j.status_anjab === "disetujui").length}
               </p>
             </div>
           </>
@@ -184,7 +191,7 @@ export default function UraianJabatanPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Jabatan</p>
-                    <p className="text-2xl font-bold text-foreground">{jabatanDetailList.length}</p>
+                    <p className="text-2xl font-bold text-foreground">{jabatanList.length}</p>
                   </div>
                 </div>
               </CardContent>
@@ -198,7 +205,7 @@ export default function UraianJabatanPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Sudah Lengkap</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {jabatanDetailList.filter((j) => j.statusAnjab === "disetujui").length}
+                      {jabatanList.filter((j) => j.status_anjab === "disetujui").length}
                     </p>
                   </div>
                 </div>
@@ -213,7 +220,7 @@ export default function UraianJabatanPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Dalam Proses</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {jabatanDetailList.filter((j) => j.statusAnjab === "final").length}
+                      {jabatanList.filter((j) => j.status_anjab === "final").length}
                     </p>
                   </div>
                 </div>
@@ -228,7 +235,7 @@ export default function UraianJabatanPage() {
                   <div>
                     <p className="text-sm text-muted-foreground">Draft</p>
                     <p className="text-2xl font-bold text-foreground">
-                      {jabatanDetailList.filter((j) => j.statusAnjab === "draft").length}
+                      {jabatanList.filter((j) => j.status_anjab === "draft").length}
                     </p>
                   </div>
                 </div>
@@ -255,7 +262,7 @@ export default function UraianJabatanPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua OPD</SelectItem>
-                    {daftarOPD.map((opd) => (
+                    {opdList.map((opd) => (
                       <SelectItem key={opd.id} value={opd.id}>
                         {opd.nama}
                       </SelectItem>
@@ -302,14 +309,14 @@ export default function UraianJabatanPage() {
                   <TableBody>
                     {filteredData.map((jabatan) => (
                       <TableRow key={jabatan.id} className="cursor-pointer border-border/60 hover:bg-background/80" onClick={() => openDetail(jabatan)}>
-                        <TableCell className="font-mono text-sm">{jabatan.kodeJabatan}</TableCell>
+                        <TableCell className="font-mono text-sm">{jabatan.kode}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium text-foreground">{jabatan.namaJabatan}</p>
-                            <p className="text-xs text-muted-foreground">{jabatan.unitKerja}</p>
+                            <p className="font-medium text-foreground">{jabatan.nama}</p>
+                            <p className="text-xs text-muted-foreground">{jabatan.unit_kerja}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{jabatan.namaOpd}</TableCell>
+                        <TableCell className="text-muted-foreground">{jabatan.opd_nama}</TableCell>
                         <TableCell className="max-w-xs truncate text-muted-foreground">
                           {jabatan.ikhtisar}
                         </TableCell>
@@ -350,14 +357,14 @@ export default function UraianJabatanPage() {
                         <Building2 className="mt-0.5 h-5 w-5 text-muted-foreground" />
                         <div>
                           <p className="text-sm text-muted-foreground">Nama Jabatan</p>
-                          <p className="font-semibold text-foreground">{selectedJabatan.namaJabatan}</p>
+                          <p className="font-semibold text-foreground">{selectedJabatan.nama}</p>
                         </div>
                       </div>
                       <div className="flex items-start gap-3">
                         <Briefcase className="mt-0.5 h-5 w-5 text-muted-foreground" />
                         <div>
                           <p className="text-sm text-muted-foreground">Unit Kerja</p>
-                          <p className="font-semibold text-foreground">{selectedJabatan.unitKerja}</p>
+                          <p className="font-semibold text-foreground">{selectedJabatan.unit_kerja}</p>
                         </div>
                       </div>
                     </div>

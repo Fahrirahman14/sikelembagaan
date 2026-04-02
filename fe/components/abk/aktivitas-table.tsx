@@ -1,39 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Pencil,
-  Trash2,
-  Search,
-  Filter,
-  MoreHorizontal,
-  ArrowUpDown,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import { Aktivitas, daftarOPD } from "@/lib/abk-data";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { type Aktivitas } from "@/lib/api";
+import {
+    ArrowUpDown,
+    Filter,
+    MoreHorizontal,
+    Pencil,
+    Search,
+    Trash2,
+} from "lucide-react";
+import { useState } from "react";
 
 interface AktivitasTableProps {
   data: Aktivitas[];
@@ -48,8 +48,8 @@ export function AktivitasTable({ data, onEdit, onDelete }: AktivitasTableProps) 
 
   const filteredData = data.filter((item) => {
     const matchSearch =
-      item.namaJabatan.toLowerCase().includes(search.toLowerCase()) ||
-      item.uraianTugas.toLowerCase().includes(search.toLowerCase());
+      (item.jabatan_nama ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      item.uraian_tugas.toLowerCase().includes(search.toLowerCase());
     const matchKategori =
       filterKategori === "all" || item.kategori === filterKategori;
     const matchFrekuensi =
@@ -87,8 +87,8 @@ export function AktivitasTable({ data, onEdit, onDelete }: AktivitasTableProps) 
       tahunan: 1,
     };
     return (
-      (aktivitas.normaWaktu *
-        aktivitas.targetKuantitas *
+      (aktivitas.norma_waktu *
+        aktivitas.target_kuantitas *
         multiplier[aktivitas.frekuensi]) /
       60
     ); // konversi ke jam
@@ -171,17 +171,17 @@ export function AktivitasTable({ data, onEdit, onDelete }: AktivitasTableProps) 
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
                   <TableCell className="font-medium">
-                    {item.namaJabatan}
+                    {item.jabatan_nama}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {item.uraianTugas}
+                    {item.uraian_tugas}
                   </TableCell>
                   <TableCell className="text-center">{item.satuan}</TableCell>
                   <TableCell className="text-center">
-                    {item.normaWaktu} menit
+                    {item.norma_waktu} menit
                   </TableCell>
                   <TableCell className="text-center">
-                    {item.targetKuantitas}
+                    {item.target_kuantitas}
                   </TableCell>
                   <TableCell className="text-center">
                     {getFrekuensiBadge(item.frekuensi)}

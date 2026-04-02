@@ -29,7 +29,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { daftarOPD, jabatanDetailList, type JabatanDetail } from "@/lib/abk-data";
+import { api, type Jabatan, type OPD } from "@/lib/api";
 import {
     Award,
     Brain,
@@ -44,7 +44,7 @@ import {
     Search,
     Shield,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Extended spesifikasi jabatan data
 const spesifikasiData = [
@@ -131,14 +131,21 @@ const spesifikasiData = [
 export default function SpesifikasiJabatanPage() {
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
-  const [selectedJabatan, setSelectedJabatan] = useState<JabatanDetail | null>(null);
+  const [selectedJabatan, setSelectedJabatan] = useState<Jabatan | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
 
-  const filteredData = jabatanDetailList.filter((jabatan) => {
+  useEffect(() => {
+    api.opd.list().then(setOpdList);
+    api.jabatan.list().then(setJabatanList);
+  }, []);
+
+  const filteredData = jabatanList.filter((jabatan) => {
     const matchSearch =
-      jabatan.namaJabatan.toLowerCase().includes(search.toLowerCase()) ||
-      jabatan.kodeJabatan.includes(search);
-    const matchOpd = opdFilter === "all" || jabatan.opdId === opdFilter;
+      jabatan.nama.toLowerCase().includes(search.toLowerCase()) ||
+      jabatan.kode.includes(search);
+    const matchOpd = opdFilter === "all" || jabatan.opd_id === opdFilter;
     return matchSearch && matchOpd;
   });
 
@@ -173,14 +180,14 @@ export default function SpesifikasiJabatanPage() {
     };
   };
 
-  const openDetail = (jabatan: JabatanDetail) => {
+  const openDetail = (jabatan: Jabatan) => {
     setSelectedJabatan(jabatan);
     setDetailOpen(true);
   };
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
-      ? `OPD: ${daftarOPD.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
+      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
       : null,
   ].filter((value): value is string => Boolean(value));
 
@@ -203,7 +210,7 @@ export default function SpesifikasiJabatanPage() {
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
                 Total jabatan
               </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{jabatanDetailList.length}</p>
+              <p className="mt-3 text-3xl font-semibold text-foreground">{jabatanList.length}</p>
             </div>
             <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
               <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
@@ -225,7 +232,7 @@ export default function SpesifikasiJabatanPage() {
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Total Jabatan</p>
-                    <p className="text-2xl font-bold text-foreground">{jabatanDetailList.length}</p>
+                    <p className="text-2xl font-bold text-foreground">{jabatanList.length}</p>
                   </div>
                 </div>
               </CardContent>
@@ -290,7 +297,7 @@ export default function SpesifikasiJabatanPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua OPD</SelectItem>
-                    {daftarOPD.map((opd) => (
+                    {opdList.map((opd) => (
                       <SelectItem key={opd.id} value={opd.id}>
                         {opd.nama}
                       </SelectItem>
@@ -338,18 +345,18 @@ export default function SpesifikasiJabatanPage() {
                   <TableBody>
                     {filteredData.map((jabatan) => (
                       <TableRow key={jabatan.id} className="cursor-pointer border-border/60 hover:bg-background/80" onClick={() => openDetail(jabatan)}>
-                        <TableCell className="font-mono text-sm">{jabatan.kodeJabatan}</TableCell>
+                        <TableCell className="font-mono text-sm">{jabatan.kode}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium text-foreground">{jabatan.namaJabatan}</p>
-                            <p className="text-xs text-muted-foreground">{jabatan.unitKerja}</p>
+                            <p className="font-medium text-foreground">{jabatan.nama}</p>
+                            <p className="text-xs text-muted-foreground">{jabatan.unit_kerja}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{jabatan.namaOpd}</TableCell>
+                        <TableCell className="text-muted-foreground">{jabatan.opd_nama}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="bg-primary/5">
                             <GraduationCap className="mr-1 h-3 w-3" />
-                            {jabatan.kualifikasiPendidikan.split(" ")[0]}
+                            {jabatan.kualifikasi_pendidikan?.split(" ")[0] ?? "S1"}
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
@@ -391,8 +398,8 @@ export default function SpesifikasiJabatanPage() {
                         <Building2 className="h-8 w-8 text-primary" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-foreground">{selectedJabatan.namaJabatan}</h3>
-                        <p className="text-muted-foreground">{selectedJabatan.namaOpd} - {selectedJabatan.unitKerja}</p>
+                        <h3 className="text-lg font-bold text-foreground">{selectedJabatan.nama}</h3>
+                        <p className="text-muted-foreground">{selectedJabatan.opd_nama} - {selectedJabatan.unit_kerja}</p>
                       </div>
                     </div>
                   </div>

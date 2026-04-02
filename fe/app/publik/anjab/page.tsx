@@ -6,34 +6,29 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
-import {
-  daftarOPD,
-  dummyHasilPerhitungan,
-  type HasilPerhitungan,
-  jabatanDetailList,
-} from "@/lib/abk-data";
+import { api, type Jabatan, type OPD, type PerhitunganABK } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
-  Briefcase,
-  Building2,
-  ChevronDown,
-  CircleAlert,
-  Gauge,
-  Info,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
-  Target,
-  TrendingUp,
-  Users,
+    Briefcase,
+    Building2,
+    ChevronDown,
+    CircleAlert,
+    Gauge,
+    Info,
+    Search,
+    SlidersHorizontal,
+    Sparkles,
+    Target,
+    TrendingUp,
+    Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type JenisJabatan = "struktural" | "fungsional" | "pelaksana";
 type JenisFilter = "all" | JenisJabatan;
@@ -76,7 +71,7 @@ function getBebanTone(beban: number) {
   };
 }
 
-function getStatusTone(status: HasilPerhitungan["keterangan"]) {
+function getStatusTone(status: string) {
   if (status === "Kekurangan") {
     return "border-red-200/80 bg-red-50 text-red-700";
   }
@@ -145,14 +140,23 @@ export default function PublicAnjabPage() {
   const [opdFilter, setOpdFilter] = useState("all");
   const [jenisFilter, setJenisFilter] = useState<JenisFilter>("all");
   const [expandedRows, setExpandedRows] = useState<ExpandedRows>({});
+  const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [perhitunganList, setPerhitunganList] = useState<PerhitunganABK[]>([]);
 
-  const filteredJabatan = jabatanDetailList.filter((jabatan) => {
+  useEffect(() => {
+    api.jabatan.list().then(setJabatanList);
+    api.opd.list().then(setOpdList);
+    api.perhitunganAbk.list().then(setPerhitunganList);
+  }, []);
+
+  const filteredJabatan = jabatanList.filter((jabatan) => {
     const matchSearch =
-      jabatan.namaJabatan.toLowerCase().includes(search.toLowerCase()) ||
-      jabatan.kodeJabatan.includes(search);
-    const matchOpd = opdFilter === "all" || jabatan.opdId === opdFilter;
+      jabatan.nama.toLowerCase().includes(search.toLowerCase()) ||
+      jabatan.kode.includes(search);
+    const matchOpd = opdFilter === "all" || jabatan.opd_id === opdFilter;
     const matchJenis =
-      jenisFilter === "all" || jabatan.jenisJabatan === jenisFilter;
+      jenisFilter === "all" || jabatan.jenis === jenisFilter;
     return matchSearch && matchOpd && matchJenis;
   });
 
@@ -170,29 +174,26 @@ export default function PublicAnjabPage() {
   };
 
   const stats = {
-    total: jabatanDetailList.length,
-    struktural: jabatanDetailList.filter((j) => j.jenisJabatan === "struktural")
-      .length,
-    fungsional: jabatanDetailList.filter((j) => j.jenisJabatan === "fungsional")
-      .length,
-    pelaksana: jabatanDetailList.filter((j) => j.jenisJabatan === "pelaksana")
-      .length,
+    total: jabatanList.length,
+    struktural: jabatanList.filter((j) => j.jenis === "struktural").length,
+    fungsional: jabatanList.filter((j) => j.jenis === "fungsional").length,
+    pelaksana: jabatanList.filter((j) => j.jenis === "pelaksana").length,
   };
 
   const filteredIds = new Set(filteredJabatan.map((jabatan) => jabatan.id));
-  const filteredPerhitungan = dummyHasilPerhitungan.filter((item) =>
-    filteredIds.has(item.jabatanId),
+  const filteredPerhitungan = perhitunganList.filter((item) =>
+    filteredIds.has(item.jabatan_id),
   );
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
-      ? `OPD: ${daftarOPD.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
+      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
       : null,
     jenisFilter !== "all" ? `Jenis: ${formatJenisLabel(jenisFilter)}` : null,
   ].filter((value): value is string => Boolean(value));
   const hasActiveFilters = activeFilters.length > 0;
   const averageBeban = filteredPerhitungan.length
-    ? filteredPerhitungan.reduce((total, item) => total + item.bebanKerja, 0) /
+    ? filteredPerhitungan.reduce((total, item) => total + item.beban_kerja, 0) /
       filteredPerhitungan.length
     : 0;
   const highPressureCount = filteredPerhitungan.filter(
@@ -201,9 +202,9 @@ export default function PublicAnjabPage() {
   const balancedCount = filteredPerhitungan.filter(
     (item) => item.keterangan === "Sesuai",
   ).length;
-  const highestLoad = filteredPerhitungan.reduce<HasilPerhitungan | undefined>(
+  const highestLoad = filteredPerhitungan.reduce<PerhitunganABK | undefined>(
     (currentHighest, item) => {
-      if (!currentHighest || item.bebanKerja > currentHighest.bebanKerja) {
+      if (!currentHighest || item.beban_kerja > currentHighest.beban_kerja) {
         return item;
       }
 
@@ -211,7 +212,7 @@ export default function PublicAnjabPage() {
     },
     undefined,
   );
-  const filteredOpdCount = new Set(filteredJabatan.map((item) => item.opdId)).size;
+  const filteredOpdCount = new Set(filteredJabatan.map((item) => item.opd_id)).size;
   const filterAnimationKey = `${search}-${opdFilter}-${jenisFilter}`;
   const dominantJenis = [
     { label: "Struktural", value: stats.struktural },
@@ -271,7 +272,7 @@ export default function PublicAnjabPage() {
                       </p>
                       <div className="mt-3 flex items-end justify-between gap-3">
                         <p className="text-3xl font-semibold text-foreground">
-                          {new Set(jabatanDetailList.map((item) => item.opdId)).size}
+                          {new Set(jabatanList.map((item) => item.opd_id)).size}
                         </p>
                         <Building2 className="h-5 w-5 text-primary" />
                       </div>
@@ -325,21 +326,21 @@ export default function PublicAnjabPage() {
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                     <p className="text-sm text-slate-400">Sorotan beban tertinggi</p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {highestLoad?.namaJabatan ?? "Belum ada data"}
+                      {highestLoad?.jabatan_nama ?? "Belum ada data"}
                     </p>
                     <p className="mt-1 text-sm text-slate-400">
-                      {highestLoad?.namaOpd ?? "-"}
+                      {"Analisis Beban Kerja"}
                     </p>
                     {highestLoad && (
                       <div className="mt-4 space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-slate-300">Indeks beban</span>
                           <span className="font-medium text-white">
-                            {highestLoad.bebanKerja.toFixed(2)}
+                            {highestLoad.beban_kerja.toFixed(2)}
                           </span>
                         </div>
                         <Progress
-                          value={getBebanProgress(highestLoad.bebanKerja)}
+                          value={getBebanProgress(highestLoad.beban_kerja)}
                           className="h-2.5 bg-white/10"
                         />
                       </div>
@@ -423,7 +424,7 @@ export default function PublicAnjabPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Semua OPD</SelectItem>
-                        {daftarOPD.map((opd) => (
+                        {opdList.map((opd) => (
                           <SelectItem key={opd.id} value={opd.id}>
                             {opd.nama}
                           </SelectItem>
@@ -605,12 +606,12 @@ export default function PublicAnjabPage() {
                 </Card>
               ) : (
                 filteredJabatan.map((jabatan) => {
-                  const perhitungan = dummyHasilPerhitungan.find(
-                    (item) => item.jabatanId === jabatan.id,
+                  const perhitungan = perhitunganList.find(
+                    (item) => item.jabatan_id === jabatan.id,
                   );
                   const isExpanded = expandedRows[jabatan.id];
                   const bebanTone = perhitungan
-                    ? getBebanTone(perhitungan.bebanKerja)
+                    ? getBebanTone(perhitungan.beban_kerja)
                     : null;
 
                   return (
@@ -634,18 +635,18 @@ export default function PublicAnjabPage() {
                               <div className="min-w-0 space-y-3">
                                 <div className="space-y-2">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <JenisBadge jenis={jabatan.jenisJabatan} />
+                                    <JenisBadge jenis={jabatan.jenis as JenisJabatan} />
                                     <Badge className="rounded-full border border-border/80 bg-background/80 px-3 py-1 text-muted-foreground">
-                                      {jabatan.namaOpd}
+                                      {jabatan.opd_nama}
                                     </Badge>
                                   </div>
 
                                   <div>
                                     <h3 className="text-xl font-semibold text-foreground">
-                                      {jabatan.namaJabatan}
+                                      {jabatan.nama}
                                     </h3>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                      {jabatan.unitKerja} • Kode {jabatan.kodeJabatan}
+                                      {jabatan.unit_kerja} • Kode {jabatan.kode}
                                     </p>
                                   </div>
                                 </div>
@@ -657,7 +658,7 @@ export default function PublicAnjabPage() {
                             </div>
 
                             <div className="flex items-center gap-3 self-start xl:pl-4">
-                              {perhitungan ? <BebanBadge beban={perhitungan.bebanKerja} /> : null}
+                              {perhitungan ? <BebanBadge beban={perhitungan.beban_kerja} /> : null}
                               <div className="rounded-full border border-border/70 bg-background/80 p-2 text-muted-foreground transition-transform duration-300 group-hover:bg-primary/5">
                                 <ChevronDown
                                   className={cn(
@@ -676,7 +677,7 @@ export default function PublicAnjabPage() {
                                   Unit Kerja
                                 </p>
                                 <p className="mt-2 font-medium text-foreground">
-                                  {jabatan.unitKerja}
+                                  {jabatan.unit_kerja}
                                 </p>
                               </div>
                               <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
@@ -684,7 +685,7 @@ export default function PublicAnjabPage() {
                                   Pendidikan
                                 </p>
                                 <p className="mt-2 line-clamp-2 font-medium text-foreground">
-                                  {jabatan.kualifikasiPendidikan}
+                                  {jabatan.kualifikasi_pendidikan}
                                 </p>
                               </div>
                               <div className="rounded-2xl border border-border/70 bg-background/80 p-4 sm:col-span-2 xl:col-span-1">
@@ -710,7 +711,7 @@ export default function PublicAnjabPage() {
                                       Beban Kerja
                                     </p>
                                     <p className="mt-2 text-2xl font-semibold text-foreground">
-                                      {perhitungan.bebanKerja.toFixed(2)}
+                                      {perhitungan.beban_kerja.toFixed(2)}
                                     </p>
                                   </div>
                                   <Gauge className="h-5 w-5 text-foreground/70" />
@@ -718,7 +719,7 @@ export default function PublicAnjabPage() {
 
                                 <div className="mt-4 space-y-2">
                                   <Progress
-                                    value={getBebanProgress(perhitungan.bebanKerja)}
+                                    value={getBebanProgress(perhitungan.beban_kerja)}
                                     className="h-2.5 bg-black/5"
                                   />
                                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -731,13 +732,13 @@ export default function PublicAnjabPage() {
                                   <div>
                                     <p className="text-muted-foreground">Kebutuhan</p>
                                     <p className="mt-1 font-semibold text-foreground">
-                                      {perhitungan.kebutuhanPegawai} orang
+                                      {perhitungan.kebutuhan_pegawai} orang
                                     </p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Pegawai ada</p>
                                     <p className="mt-1 font-semibold text-foreground">
-                                      {perhitungan.pegawaiExisting} orang
+                                      {perhitungan.pegawai_existing} orang
                                     </p>
                                   </div>
                                 </div>
@@ -777,7 +778,7 @@ export default function PublicAnjabPage() {
                                   <div>
                                     <p className="text-muted-foreground">Pendidikan</p>
                                     <p className="mt-1 font-medium text-foreground">
-                                      {jabatan.kualifikasiPendidikan}
+                                      {jabatan.kualifikasi_pendidikan}
                                     </p>
                                   </div>
                                   <div>
@@ -797,13 +798,13 @@ export default function PublicAnjabPage() {
                                   <div>
                                     <p className="text-muted-foreground">Jenis jabatan</p>
                                     <div className="mt-2">
-                                      <JenisBadge jenis={jabatan.jenisJabatan} />
+                                      <JenisBadge jenis={jabatan.jenis as JenisJabatan} />
                                     </div>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground">Kode jabatan</p>
                                     <p className="mt-1 font-medium text-foreground">
-                                      {jabatan.kodeJabatan}
+                                      {jabatan.kode}
                                     </p>
                                   </div>
                                 </div>
@@ -839,7 +840,7 @@ export default function PublicAnjabPage() {
                                         Total waktu kerja
                                       </p>
                                       <p className="mt-2 text-2xl font-semibold text-foreground">
-                                        {perhitungan.totalWaktuKerja}
+                                        {perhitungan.total_waktu_kerja}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
                                         Jam per tahun
@@ -852,7 +853,7 @@ export default function PublicAnjabPage() {
                                         Waktu efektif
                                       </p>
                                       <p className="mt-2 text-2xl font-semibold text-foreground">
-                                        {perhitungan.waktuKerjaEfektif}
+                                        {perhitungan.total_waktu_kerja}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
                                         Jam per tahun
@@ -865,7 +866,7 @@ export default function PublicAnjabPage() {
                                         Indeks beban kerja
                                       </p>
                                       <p className="mt-2 text-2xl font-semibold text-foreground">
-                                        {perhitungan.bebanKerja.toFixed(2)}
+                                        {perhitungan.beban_kerja.toFixed(2)}
                                       </p>
                                       <p className="text-xs text-muted-foreground">Rasio beban</p>
                                     </CardContent>
@@ -876,7 +877,7 @@ export default function PublicAnjabPage() {
                                         Kebutuhan pegawai
                                       </p>
                                       <p className="mt-2 text-2xl font-semibold text-foreground">
-                                        {perhitungan.kebutuhanPegawai}
+                                        {perhitungan.kebutuhan_pegawai}
                                       </p>
                                       <p className="text-xs text-muted-foreground">Orang</p>
                                     </CardContent>
@@ -891,15 +892,15 @@ export default function PublicAnjabPage() {
                                           Perbandingan pegawai tersedia
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                          {perhitungan.pegawaiExisting} dari {perhitungan.kebutuhanPegawai} pegawai yang dibutuhkan
+                                          {perhitungan.pegawai_existing} dari {perhitungan.kebutuhan_pegawai} pegawai yang dibutuhkan
                                         </p>
                                       </div>
                                       <Users className="h-5 w-5 text-primary" />
                                     </div>
                                     <Progress
                                       value={getPegawaiProgress(
-                                        perhitungan.pegawaiExisting,
-                                        perhitungan.kebutuhanPegawai,
+                                        perhitungan.pegawai_existing,
+                                        perhitungan.kebutuhan_pegawai,
                                       )}
                                       className="mt-4 h-2.5 bg-primary/10"
                                     />
@@ -910,7 +911,7 @@ export default function PublicAnjabPage() {
                                       Status kebutuhan
                                     </p>
                                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                                      Dibutuhkan {perhitungan.kebutuhanPegawai} orang
+                                      Dibutuhkan {perhitungan.kebutuhan_pegawai} orang
                                       dengan selisih {perhitungan.selisih > 0 ? "+" : ""}
                                       {perhitungan.selisih} terhadap kondisi saat ini.
                                     </p>

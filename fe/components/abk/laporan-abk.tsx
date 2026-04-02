@@ -1,66 +1,75 @@
 "use client";
 
-import { useState } from "react";
-import {
-  FileText,
-  Search,
-  Download,
-  Eye,
-  Printer,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  FileEdit,
-  Building2,
-  Users,
-  TrendingUp,
-  MoreHorizontal,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle
+} from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { api, type LaporanABK } from "@/lib/api";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { LaporanABK, dummyLaporan } from "@/lib/abk-data";
+    Building2,
+    CheckCircle2,
+    Clock,
+    Download,
+    Eye,
+    FileEdit,
+    FileText,
+    MoreHorizontal,
+    Printer,
+    Search,
+    TrendingUp,
+    Users
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 export function LaporanABKComponent() {
-  const [data] = useState<LaporanABK[]>(dummyLaporan);
+  const [data, setData] = useState<LaporanABK[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedLaporan, setSelectedLaporan] = useState<LaporanABK | null>(null);
 
+  const fetchData = useCallback(async () => {
+    try {
+      const result = await api.laporanAbk.list();
+      setData(result);
+    } catch {
+      // keep empty
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
   const filteredData = data.filter((item) => {
-    const matchSearch = item.namaOpd.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = (item.opd_nama ?? "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "all" || item.status === filterStatus;
     return matchSearch && matchStatus;
   });
@@ -69,8 +78,9 @@ export function LaporanABKComponent() {
   const totalLaporan = data.length;
   const laporanDisetujui = data.filter((d) => d.status === "disetujui").length;
   const laporanFinal = data.filter((d) => d.status === "final").length;
-  const avgEfisiensi =
-    data.reduce((sum, item) => sum + item.efisiensi, 0) / data.length;
+  const avgEfisiensi = data.length
+    ? data.reduce((sum, item) => sum + item.efisiensi, 0) / data.length
+    : 0;
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: "default" | "secondary" | "outline"; icon: React.ReactNode; label: string }> = {
@@ -237,26 +247,26 @@ export function LaporanABKComponent() {
               </TableRow>
             ) : (
               filteredData.map((item, index) => (
-                <TableRow key={item.opdId}>
+                <TableRow key={item.id}>
                   <TableCell className="font-medium">{index + 1}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{item.namaOpd}</span>
+                      <span className="font-medium">{item.opd_nama}</span>
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{item.periode}</TableCell>
                   <TableCell className="text-center text-muted-foreground">
-                    {formatDate(item.tanggalDibuat)}
+                    {formatDate(item.tanggal_dibuat)}
                   </TableCell>
                   <TableCell className="text-center">
-                    {item.totalJabatan}
+                    {item.total_jabatan}
                   </TableCell>
                   <TableCell className="text-center font-medium">
-                    {item.totalKebutuhanPegawai}
+                    {item.total_kebutuhan_pegawai}
                   </TableCell>
                   <TableCell className="text-center">
-                    {item.totalPegawaiExisting}
+                    {item.total_pegawai_existing}
                   </TableCell>
                   <TableCell className="text-center">
                     <span className={`font-semibold ${getEfisiensiColor(item.efisiensi)}`}>
@@ -315,10 +325,10 @@ export function LaporanABKComponent() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              Laporan ABK - {selectedLaporan?.namaOpd}
+              Laporan ABK - {selectedLaporan?.opd_nama}
             </DialogTitle>
             <DialogDescription>
-              Periode {selectedLaporan?.periode} | Dibuat: {selectedLaporan && formatDate(selectedLaporan.tanggalDibuat)}
+              Periode {selectedLaporan?.periode} | Dibuat: {selectedLaporan && formatDate(selectedLaporan.tanggal_dibuat)}
             </DialogDescription>
           </DialogHeader>
           
@@ -339,7 +349,7 @@ export function LaporanABKComponent() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Total Jabatan</p>
-                      <p className="text-xl font-bold">{selectedLaporan.totalJabatan}</p>
+                      <p className="text-xl font-bold">{selectedLaporan.total_jabatan}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -369,7 +379,7 @@ export function LaporanABKComponent() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Kebutuhan Pegawai</span>
-                    <span className="font-semibold">{selectedLaporan.totalKebutuhanPegawai}</span>
+                    <span className="font-semibold">{selectedLaporan.total_kebutuhan_pegawai}</span>
                   </div>
                   <Progress 
                     value={100} 
@@ -377,21 +387,21 @@ export function LaporanABKComponent() {
                   />
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Pegawai Existing</span>
-                    <span className="font-semibold">{selectedLaporan.totalPegawaiExisting}</span>
+                    <span className="font-semibold">{selectedLaporan.total_pegawai_existing}</span>
                   </div>
                   <Progress 
-                    value={(selectedLaporan.totalPegawaiExisting / selectedLaporan.totalKebutuhanPegawai) * 100} 
+                    value={(selectedLaporan.total_pegawai_existing / selectedLaporan.total_kebutuhan_pegawai) * 100} 
                     className="h-3" 
                   />
                   <div className="flex items-center justify-between border-t pt-3">
                     <span className="text-sm font-medium">Selisih</span>
                     <span className={`font-bold ${
-                      selectedLaporan.totalPegawaiExisting - selectedLaporan.totalKebutuhanPegawai < 0
+                      selectedLaporan.total_pegawai_existing - selectedLaporan.total_kebutuhan_pegawai < 0
                         ? "text-destructive"
                         : "text-green-600"
                     }`}>
-                      {selectedLaporan.totalPegawaiExisting - selectedLaporan.totalKebutuhanPegawai > 0 ? "+" : ""}
-                      {selectedLaporan.totalPegawaiExisting - selectedLaporan.totalKebutuhanPegawai} orang
+                      {selectedLaporan.total_pegawai_existing - selectedLaporan.total_kebutuhan_pegawai > 0 ? "+" : ""}
+                      {selectedLaporan.total_pegawai_existing - selectedLaporan.total_kebutuhan_pegawai} orang
                     </span>
                   </div>
                 </CardContent>

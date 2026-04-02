@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { dummyLaporan, jabatanDetailList, opdDetailList } from "@/lib/abk-data";
+import { api, type DashboardSummary, type LaporanABK, type OPD } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
     ArrowRight,
@@ -20,8 +20,9 @@ import {
     Users,
 } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-function getStatusTone(status: "belum" | "proses" | "selesai") {
+function getStatusTone(status: string) {
   if (status === "selesai") {
     return "border-emerald-200 bg-emerald-50 text-emerald-700";
   }
@@ -34,14 +35,25 @@ function getStatusTone(status: "belum" | "proses" | "selesai") {
 }
 
 export default function PublicDashboardPage() {
-  const totalOPD = opdDetailList.length;
-  const totalJabatan = jabatanDetailList.length;
-  const totalPegawai = opdDetailList.reduce((sum, opd) => sum + opd.totalPegawai, 0);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [laporanList, setLaporanList] = useState<LaporanABK[]>([]);
+
+  useEffect(() => {
+    api.dashboard.summary().then(setSummary);
+    api.opd.list().then(setOpdList);
+    api.laporanAbk.list().then(setLaporanList);
+  }, []);
+
+  const totalOPD = summary?.total_opd ?? 0;
+  const totalJabatan = summary?.total_jabatan ?? 0;
+  const totalPegawai = summary?.total_pegawai ?? 0;
   const avgEfisiensi =
-    dummyLaporan.reduce((sum, laporan) => sum + laporan.efisiensi, 0) /
-    dummyLaporan.length;
-  const opdSelesaiAnjab = opdDetailList.filter((opd) => opd.statusAnjab === "selesai").length;
-  const topPerformer = [...dummyLaporan].sort((a, b) => b.efisiensi - a.efisiensi)[0];
+    laporanList.length > 0
+      ? laporanList.reduce((sum, l) => sum + l.efisiensi, 0) / laporanList.length
+      : 0;
+  const opdSelesaiAnjab = summary?.anjab_selesai ?? 0;
+  const topPerformer = [...laporanList].sort((a, b) => b.efisiensi - a.efisiensi)[0];
 
   const stats = [
     {
@@ -160,7 +172,7 @@ export default function PublicDashboardPage() {
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
                     <p className="text-sm text-slate-400">OPD dengan efisiensi tertinggi</p>
                     <p className="mt-2 text-lg font-semibold text-white">
-                      {topPerformer?.namaOpd ?? "Belum ada data"}
+                      {topPerformer?.opd_nama ?? "Belum ada data"}
                     </p>
                     <div className="mt-4 space-y-2">
                       <div className="flex items-center justify-between text-sm">
@@ -184,7 +196,7 @@ export default function PublicDashboardPage() {
                     </div>
                     <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                       <p className="text-sm text-slate-400">Laporan ABK</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">{dummyLaporan.length}</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">{laporanList.length}</p>
                       <p className="text-xs text-slate-400">dataset terpublikasi</p>
                     </div>
                   </div>
@@ -259,13 +271,13 @@ export default function PublicDashboardPage() {
                   <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
                     <p className="text-sm text-muted-foreground">OPD dengan jumlah pegawai terbesar</p>
                     <p className="mt-2 font-semibold text-foreground">
-                      {opdDetailList.sort((a, b) => b.totalPegawai - a.totalPegawai)[0]?.nama}
+                      {[...opdList].sort((a, b) => b.total_pegawai - a.total_pegawai)[0]?.nama}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
                     <p className="text-sm text-muted-foreground">Total dokumen dan laporan</p>
                     <p className="mt-2 text-2xl font-semibold text-foreground">
-                      {dummyLaporan.length + totalOPD}
+                      {laporanList.length + totalOPD}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
@@ -291,12 +303,12 @@ export default function PublicDashboardPage() {
                 </h2>
               </div>
               <Badge className="w-fit rounded-full border border-border/80 bg-background/80 px-3 py-1 text-muted-foreground">
-                Menampilkan {Math.min(8, opdDetailList.length)} OPD
+                Menampilkan {Math.min(8, opdList.length)} OPD
               </Badge>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {opdDetailList.slice(0, 8).map((opd, index) => (
+              {opdList.slice(0, 8).map((opd, index) => (
                 <Card
                   key={opd.id}
                   className="border-white/60 bg-card/80 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur animate-in fade-in-0 slide-in-from-bottom-3 duration-700"
@@ -320,20 +332,20 @@ export default function PublicDashboardPage() {
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
                         <p className="text-muted-foreground">Pegawai</p>
-                        <p className="mt-1 font-semibold text-foreground">{opd.totalPegawai}</p>
+                        <p className="mt-1 font-semibold text-foreground">{opd.total_pegawai}</p>
                       </div>
                       <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
                         <p className="text-muted-foreground">Jabatan</p>
-                        <p className="mt-1 font-semibold text-foreground">{opd.totalJabatan}</p>
+                        <p className="mt-1 font-semibold text-foreground">{opd.total_jabatan}</p>
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Badge className={cn("rounded-full border px-3 py-1", getStatusTone(opd.statusAnjab))}>
-                        Anjab {opd.statusAnjab}
+                      <Badge className={cn("rounded-full border px-3 py-1", getStatusTone(opd.status_anjab))}>
+                        Anjab {opd.status_anjab}
                       </Badge>
-                      <Badge className={cn("rounded-full border px-3 py-1", getStatusTone(opd.statusAbk))}>
-                        ABK {opd.statusAbk}
+                      <Badge className={cn("rounded-full border px-3 py-1", getStatusTone(opd.status_abk))}>
+                        ABK {opd.status_abk}
                       </Badge>
                     </div>
                   </CardContent>

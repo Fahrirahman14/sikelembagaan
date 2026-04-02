@@ -29,7 +29,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { daftarOPD, pejabatList, type Pejabat } from "@/lib/abk-data";
+import { api, type OPD, type Pejabat } from "@/lib/api";
 import {
     Building2,
     Calendar,
@@ -44,7 +44,7 @@ import {
     UserCircle,
     Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function EselonBadge({ eselon }: { eselon: string }) {
   const colors: Record<string, string> = {
@@ -63,29 +63,52 @@ function EselonBadge({ eselon }: { eselon: string }) {
 }
 
 export default function DataPejabatPage() {
+  const [items, setItems] = useState<Pejabat[]>([]);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
   const [selectedPejabat, setSelectedPejabat] = useState<Pejabat | null>(null);
 
-  const filteredData = pejabatList.filter((pejabat) => {
-    const matchSearch =
-      pejabat.nama.toLowerCase().includes(search.toLowerCase()) ||
-      pejabat.nip.includes(search) ||
-      pejabat.jabatan.toLowerCase().includes(search.toLowerCase());
-    const matchOpd = opdFilter === "all" || pejabat.opdId === opdFilter;
-    return matchSearch && matchOpd;
-  });
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [pejabatData, opdData] = await Promise.all([
+        api.pejabat.list({
+          opd_id: opdFilter !== "all" ? opdFilter : undefined,
+          search: search || undefined,
+        }),
+        api.opd.list(),
+      ]);
+      setItems(pejabatData);
+      setOpdList(opdData);
+    } catch {
+      // keep previous data
+    } finally {
+      setLoading(false);
+    }
+  }, [search, opdFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus pejabat ini?")) return;
+    await api.pejabat.delete(id);
+    fetchData();
+  };
+
+  const filteredData = items;
 
   const stats = {
-    total: pejabatList.length,
-    eselon2: pejabatList.filter((p) => p.eselon.startsWith("II")).length,
-    eselon3: pejabatList.filter((p) => p.eselon.startsWith("III")).length,
-    eselon4: pejabatList.filter((p) => p.eselon.startsWith("IV")).length,
+    total: items.length,
+    eselon2: items.filter((p) => p.eselon.startsWith("II")).length,
+    eselon3: items.filter((p) => p.eselon.startsWith("III")).length,
+    eselon4: items.filter((p) => p.eselon.startsWith("IV")).length,
   };
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
-      ? `OPD: ${daftarOPD.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
+      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
       : null,
   ].filter((value): value is string => Boolean(value));
 
@@ -224,7 +247,7 @@ export default function DataPejabatPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua OPD</SelectItem>
-                      {daftarOPD.map((opd) => (
+                      {opdList.map((opd) => (
                         <SelectItem key={opd.id} value={opd.id}>
                           {opd.nama}
                         </SelectItem>
@@ -249,7 +272,15 @@ export default function DataPejabatPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.map((pejabat) => (
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Memuat data...</TableCell>
+                      </TableRow>
+                    ) : filteredData.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Tidak ada data pejabat</TableCell>
+                      </TableRow>
+                    ) : filteredData.map((pejabat) => (
                       <TableRow key={pejabat.id} className="border-border/60 hover:bg-background/80">
                         <TableCell className="font-mono text-sm">{pejabat.nip}</TableCell>
                         <TableCell>
@@ -266,7 +297,7 @@ export default function DataPejabatPage() {
                           </div>
                         </TableCell>
                         <TableCell className="font-medium">{pejabat.jabatan}</TableCell>
-                        <TableCell className="text-muted-foreground">{pejabat.namaOpd}</TableCell>
+                        <TableCell className="text-muted-foreground">{pejabat.opd_nama}</TableCell>
                         <TableCell>
                           <EselonBadge eselon={pejabat.eselon} />
                         </TableCell>
@@ -313,7 +344,7 @@ export default function DataPejabatPage() {
                                         <Building2 className="mt-0.5 h-5 w-5 text-muted-foreground" />
                                         <div>
                                           <Label className="text-muted-foreground">OPD</Label>
-                                          <p className="font-medium">{selectedPejabat.namaOpd}</p>
+                                          <p className="font-medium">{selectedPejabat.opd_nama}</p>
                                         </div>
                                       </div>
                                       <div className="flex items-start gap-3">
@@ -327,7 +358,7 @@ export default function DataPejabatPage() {
                                         <Calendar className="mt-0.5 h-5 w-5 text-muted-foreground" />
                                         <div>
                                           <Label className="text-muted-foreground">TMT Jabatan</Label>
-                                          <p className="font-medium">{new Date(selectedPejabat.tmtJabatan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</p>
+                                          <p className="font-medium">{selectedPejabat.tmt_jabatan ? new Date(selectedPejabat.tmt_jabatan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}</p>
                                         </div>
                                       </div>
                                       <div className="col-span-2 flex items-start gap-3">
@@ -345,7 +376,7 @@ export default function DataPejabatPage() {
                             <Button variant="ghost" size="icon">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive">
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(pejabat.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>

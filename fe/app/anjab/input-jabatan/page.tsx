@@ -31,7 +31,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { daftarOPD, jabatanDetailList } from "@/lib/abk-data";
+import { api, type Jabatan, type OPD } from "@/lib/api";
 import {
     Briefcase,
     Building2,
@@ -44,7 +44,7 @@ import {
     Trash2,
     Users
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 function JenisBadge({ jenis }: { jenis: "struktural" | "fungsional" | "pelaksana" }) {
   const variants = {
@@ -73,30 +73,80 @@ function StatusBadge({ status }: { status: "draft" | "final" | "disetujui" }) {
 }
 
 export default function InputJabatanPage() {
+  const [items, setItems] = useState<Jabatan[]>([]);
+  const [opdList, setOpdList] = useState<OPD[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
   const [jenisFilter, setJenisFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [newKode, setNewKode] = useState("");
+  const [newNama, setNewNama] = useState("");
+  const [newJenis, setNewJenis] = useState("");
+  const [newEselon, setNewEselon] = useState("");
+  const [newOpdId, setNewOpdId] = useState("");
+  const [newUnitKerja, setNewUnitKerja] = useState("");
+  const [newIkhtisar, setNewIkhtisar] = useState("");
+  const [newPendidikan, setNewPendidikan] = useState("");
+  const [newPengalaman, setNewPengalaman] = useState("");
 
-  const filteredData = jabatanDetailList.filter((jabatan) => {
-    const matchSearch =
-      jabatan.namaJabatan.toLowerCase().includes(search.toLowerCase()) ||
-      jabatan.kodeJabatan.includes(search);
-    const matchOpd = opdFilter === "all" || jabatan.opdId === opdFilter;
-    const matchJenis = jenisFilter === "all" || jabatan.jenisJabatan === jenisFilter;
-    return matchSearch && matchOpd && matchJenis;
-  });
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [jabatanData, opdData] = await Promise.all([
+        api.jabatan.list({
+          opd_id: opdFilter !== "all" ? opdFilter : undefined,
+          search: search || undefined,
+          jenis: jenisFilter !== "all" ? jenisFilter : undefined,
+        }),
+        api.opd.list(),
+      ]);
+      setItems(jabatanData);
+      setOpdList(opdData);
+    } catch {
+      // keep previous data
+    } finally {
+      setLoading(false);
+    }
+  }, [search, opdFilter, jenisFilter]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleCreate = async () => {
+    if (!newNama || !newOpdId) return;
+    await api.jabatan.create({
+      kode: newKode,
+      nama: newNama,
+      jenis: newJenis,
+      eselon: newEselon,
+      opd_id: newOpdId,
+      unit_kerja: newUnitKerja,
+      ikhtisar: newIkhtisar,
+      kualifikasi_pendidikan: newPendidikan,
+      pengalaman: newPengalaman,
+    });
+    setDialogOpen(false);
+    fetchData();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Hapus jabatan ini?")) return;
+    await api.jabatan.delete(id);
+    fetchData();
+  };
+
+  const filteredData = items;
 
   const stats = {
-    total: jabatanDetailList.length,
-    struktural: jabatanDetailList.filter((j) => j.jenisJabatan === "struktural").length,
-    fungsional: jabatanDetailList.filter((j) => j.jenisJabatan === "fungsional").length,
-    pelaksana: jabatanDetailList.filter((j) => j.jenisJabatan === "pelaksana").length,
+    total: items.length,
+    struktural: items.filter((j) => j.jenis === "struktural").length,
+    fungsional: items.filter((j) => j.jenis === "fungsional").length,
+    pelaksana: items.filter((j) => j.jenis === "pelaksana").length,
   };
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
-      ? `OPD: ${daftarOPD.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
+      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
       : null,
     jenisFilter !== "all" ? `Jenis: ${jenisFilter}` : null,
   ].filter((value): value is string => Boolean(value));
@@ -154,17 +204,17 @@ export default function InputJabatanPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="kode">Kode Jabatan</Label>
-                      <Input id="kode" placeholder="Contoh: 1.05.01.001" />
+                      <Input id="kode" placeholder="Contoh: 1.05.01.001" value={newKode} onChange={(e) => setNewKode(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="nama">Nama Jabatan</Label>
-                      <Input id="nama" placeholder="Nama jabatan" />
+                      <Input id="nama" placeholder="Nama jabatan" value={newNama} onChange={(e) => setNewNama(e.target.value)} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="jenis">Jenis Jabatan</Label>
-                      <Select>
+                      <Select value={newJenis} onValueChange={setNewJenis}>
                         <SelectTrigger>
                           <SelectValue placeholder="Pilih jenis" />
                         </SelectTrigger>
@@ -177,7 +227,7 @@ export default function InputJabatanPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="eselon">Eselon (jika struktural)</Label>
-                      <Select>
+                      <Select value={newEselon} onValueChange={setNewEselon}>
                         <SelectTrigger>
                           <SelectValue placeholder="Pilih eselon" />
                         </SelectTrigger>
@@ -195,12 +245,12 @@ export default function InputJabatanPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="opd">OPD</Label>
-                      <Select>
+                      <Select value={newOpdId} onValueChange={setNewOpdId}>
                         <SelectTrigger>
                           <SelectValue placeholder="Pilih OPD" />
                         </SelectTrigger>
                         <SelectContent>
-                          {daftarOPD.map((opd) => (
+                          {opdList.map((opd) => (
                             <SelectItem key={opd.id} value={opd.id}>
                               {opd.nama}
                             </SelectItem>
@@ -210,25 +260,25 @@ export default function InputJabatanPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="unit">Unit Kerja</Label>
-                      <Input id="unit" placeholder="Unit kerja" />
+                      <Input id="unit" placeholder="Unit kerja" value={newUnitKerja} onChange={(e) => setNewUnitKerja(e.target.value)} />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="ikhtisar">Ikhtisar Jabatan</Label>
-                    <Textarea id="ikhtisar" placeholder="Deskripsi singkat tugas jabatan" rows={3} />
+                    <Textarea id="ikhtisar" placeholder="Deskripsi singkat tugas jabatan" rows={3} value={newIkhtisar} onChange={(e) => setNewIkhtisar(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="pendidikan">Kualifikasi Pendidikan</Label>
-                    <Input id="pendidikan" placeholder="Contoh: S1 Administrasi/Manajemen" />
+                    <Input id="pendidikan" placeholder="Contoh: S1 Administrasi/Manajemen" value={newPendidikan} onChange={(e) => setNewPendidikan(e.target.value)} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="pengalaman">Pengalaman</Label>
-                    <Input id="pengalaman" placeholder="Contoh: Minimal 2 tahun di bidang terkait" />
+                    <Input id="pengalaman" placeholder="Contoh: Minimal 2 tahun di bidang terkait" value={newPengalaman} onChange={(e) => setNewPengalaman(e.target.value)} />
                   </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>Batal</Button>
-                  <Button onClick={() => setDialogOpen(false)}>Simpan</Button>
+                  <Button onClick={handleCreate}>Simpan</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -327,7 +377,7 @@ export default function InputJabatanPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua OPD</SelectItem>
-                      {daftarOPD.map((opd) => (
+                      {opdList.map((opd) => (
                         <SelectItem key={opd.id} value={opd.id}>
                           {opd.nama}
                         </SelectItem>
@@ -374,24 +424,28 @@ export default function InputJabatanPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredData.map((jabatan) => (
+                    {loading ? (
+                      <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Memuat data...</TableCell></TableRow>
+                    ) : filteredData.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Tidak ada data jabatan</TableCell></TableRow>
+                    ) : filteredData.map((jabatan) => (
                       <TableRow key={jabatan.id} className="transition-colors hover:bg-muted/30">
-                        <TableCell className="font-mono text-sm">{jabatan.kodeJabatan}</TableCell>
+                        <TableCell className="font-mono text-sm">{jabatan.kode}</TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium text-foreground">{jabatan.namaJabatan}</p>
+                            <p className="font-medium text-foreground">{jabatan.nama}</p>
                             {jabatan.eselon && (
                               <p className="text-xs text-muted-foreground">Eselon {jabatan.eselon}</p>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
-                          <JenisBadge jenis={jabatan.jenisJabatan} />
+                          <JenisBadge jenis={jabatan.jenis as "struktural" | "fungsional" | "pelaksana"} />
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{jabatan.namaOpd}</TableCell>
-                        <TableCell className="text-muted-foreground">{jabatan.unitKerja}</TableCell>
+                        <TableCell className="text-muted-foreground">{jabatan.opd_nama}</TableCell>
+                        <TableCell className="text-muted-foreground">{jabatan.unit_kerja}</TableCell>
                         <TableCell>
-                          <StatusBadge status={jabatan.statusAnjab} />
+                          <StatusBadge status={jabatan.status_anjab as "draft" | "final" | "disetujui"} />
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -401,7 +455,7 @@ export default function InputJabatanPage() {
                             <Button variant="ghost" size="icon">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive">
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(jabatan.id)}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
