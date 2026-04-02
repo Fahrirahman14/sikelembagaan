@@ -42,7 +42,12 @@ func main() {
 	e := router.New(cfg, db)
 	addr := ":" + cfg.Port
 	srv := &http.Server{Addr: addr, Handler: e}
-	log.Printf("backend running on http://localhost%s", addr)
+	log.Println("//////////////////////////////////////////")
+	log.Println("//                                      //")
+	log.Println("//       BE SIKELEMBAGAAN               //")
+	log.Printf("//   running on http://localhost%s   //", addr)
+	log.Println("//                                      //")
+	log.Println("//////////////////////////////////////////")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -4,12 +4,9 @@ import { OPDTable } from "@/components/opd-table";
 import { OrgStructure } from "@/components/org-structure";
 import { RecentActivity } from "@/components/recent-activity";
 import { StatCard } from "@/components/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { WorkloadChart } from "@/components/workload-chart";
 import { api, DashboardSummary } from "@/lib/api";
-import { Award, BarChart3, Building2, FileText, Sparkles } from "lucide-react";
-import Link from "next/link";
+import { Award, BarChart3, Building2, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function DashboardClient() {
@@ -27,7 +24,7 @@ export function DashboardClient() {
 
   return (
     <>
-      <section className="overflow-hidden rounded-4xl border border-white/60 bg-card/85 p-6 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.45)] backdrop-blur sm:p-8">
+      {/* <section className="overflow-hidden rounded-4xl border border-white/60 bg-card/85 p-6 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.45)] backdrop-blur sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[1.25fr_0.9fr] lg:items-center">
           <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-700">
             <Badge className="inline-flex rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
@@ -74,7 +71,7 @@ export function DashboardClient() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

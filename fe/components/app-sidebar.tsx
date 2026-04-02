@@ -34,7 +34,7 @@ interface NavItemProps {
 }
 
 function isPathActive(pathname: string, href: string) {
-  if (href === "/") {
+  if (href === "/admin") {
     return pathname === href;
   }
 
@@ -182,7 +182,7 @@ export function AppSidebar() {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          <NavItem icon={Home} label="Dashboard" href="/" pathname={pathname} onItemClick={closeMobile} />
+          <NavItem icon={Home} label="Dashboard" href="/admin" pathname={pathname} onItemClick={closeMobile} />
 
           <div className="pb-2 pt-6">
             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
@@ -196,9 +196,9 @@ export function AppSidebar() {
             pathname={pathname}
             onItemClick={closeMobile}
             children={[
-              { label: "Daftar OPD", href: "/opd/daftar" },
-              { label: "Struktur Organisasi", href: "/opd/struktur" },
-              { label: "Data Pejabat", href: "/opd/pejabat" },
+              { label: "Daftar OPD", href: "/admin/opd/daftar" },
+              { label: "Struktur Organisasi", href: "/admin/opd/struktur" },
+              { label: "Data Pejabat", href: "/admin/opd/pejabat" },
             ]}
           />
 
@@ -208,10 +208,10 @@ export function AppSidebar() {
             pathname={pathname}
             onItemClick={closeMobile}
             children={[
-              { label: "Input Data Jabatan", href: "/anjab/input-jabatan" },
-              { label: "Uraian Jabatan", href: "/anjab/uraian" },
-              { label: "Spesifikasi Jabatan", href: "/anjab/spesifikasi" },
-              { label: "Dokumen Anjab", href: "/anjab/dokumen" },
+              { label: "Input Data Jabatan", href: "/admin/anjab/input-jabatan" },
+              { label: "Uraian Jabatan", href: "/admin/anjab/uraian" },
+              { label: "Spesifikasi Jabatan", href: "/admin/anjab/spesifikasi" },
+              { label: "Dokumen Anjab", href: "/admin/anjab/dokumen" },
             ]}
           />
 
@@ -221,15 +221,15 @@ export function AppSidebar() {
             pathname={pathname}
             onItemClick={closeMobile}
             children={[
-              { label: "Input Aktivitas", href: "/abk/aktivitas" },
-              { label: "Perhitungan ABK", href: "/abk/perhitungan" },
-              { label: "Laporan ABK", href: "/abk/laporan" },
+              { label: "Input Aktivitas", href: "/admin/abk/aktivitas" },
+              { label: "Perhitungan ABK", href: "/admin/abk/perhitungan" },
+              { label: "Laporan ABK", href: "/admin/abk/laporan" },
             ]}
           />
 
-          <NavItem icon={Award} label="Capaian SAKIP" href="/sakip" pathname={pathname} onItemClick={closeMobile} />
+          <NavItem icon={Award} label="Capaian SAKIP" href="/admin/sakip" pathname={pathname} onItemClick={closeMobile} />
 
-          <NavItem icon={FileText} label="Laporan" href="/laporan" pathname={pathname} onItemClick={closeMobile} />
+          <NavItem icon={FileText} label="Laporan" href="/admin/laporan" pathname={pathname} onItemClick={closeMobile} />
 
           <div className="pb-2 pt-6">
             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
@@ -243,8 +243,8 @@ export function AppSidebar() {
             pathname={pathname}
             onItemClick={closeMobile}
             children={[
-              { label: "Pengaturan User", href: "/pengaturan/user" },
-              { label: "Role Admin", href: "/pengaturan/role-admin" },
+              { label: "Pengaturan User", href: "/admin/pengaturan/user" },
+              { label: "Role Admin", href: "/admin/pengaturan/role-admin" },
             ]}
           />
           <NavItem icon={HelpCircle} label="Bantuan" href="#bantuan" pathname={pathname} onItemClick={closeMobile} />

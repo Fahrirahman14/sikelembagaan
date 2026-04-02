@@ -32,7 +32,7 @@ export default function PublicLoginPage() {
         return;
       }
       await login(email, password);
-      router.push("/");
+      router.push("/admin");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan saat login.";
       setError(msg === "Unauthorized" ? "Email atau password salah" : msg);
@@ -46,7 +46,7 @@ export default function PublicLoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center text-center">
-          <Link href="/publik" className="mb-4 inline-flex items-center gap-2">
+          <Link href="/" className="mb-4 inline-flex items-center gap-2">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
               <Building2 className="h-6 w-6 text-primary-foreground" />
             </div>

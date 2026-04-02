@@ -9,10 +9,10 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   const footerLinks = [
-    { label: "Dashboard Publik", href: "/publik" },
-    { label: "Capaian SAKIP", href: "/publik/sakip" },
-    { label: "Analisis Jabatan", href: "/publik/anjab" },
-    { label: "Login", href: "/publik/login" },
+    { label: "Dashboard Publik", href: "/" },
+    { label: "Capaian SAKIP", href: "/sakip" },
+    { label: "Analisis Jabatan", href: "/anjab" },
+    { label: "Login", href: "/login" },
   ];
 
   return (

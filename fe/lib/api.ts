@@ -207,6 +207,9 @@ export interface NilaiSAKIP {
   komponen_nilai: unknown;
   created_at: string;
   updated_at: string;
+  created_by: string;
+  updated_by: string;
+  uploaded_by: string;
 }
 
 export interface DokumenSAKIP {

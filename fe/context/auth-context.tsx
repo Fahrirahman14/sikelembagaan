@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     clearTokens();
     setUser(null);
-    router.push("/publik/login");
+    router.push("/login");
   }, [router]);
 
   return (

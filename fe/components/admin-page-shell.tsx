@@ -23,7 +23,7 @@ export function AdminPageShell({
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.replace("/publik/login");
+      router.replace("/login");
     }
   }, [isAuthenticated, isLoading, router]);
 

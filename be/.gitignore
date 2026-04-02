@@ -3,7 +3,4 @@ bin/
 *.exe
 
 # data
-/data/
-
-# local env
-.env
+/data/ 

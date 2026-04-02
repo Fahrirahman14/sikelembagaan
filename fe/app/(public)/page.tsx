@@ -7,17 +7,16 @@ import { Progress } from "@/components/ui/progress";
 import { api, type DashboardSummary, type LaporanABK, type OPD } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
-    ArrowRight,
-    Award,
-    BarChart3,
-    Briefcase,
-    Building2,
-    CheckCircle2,
-    FileText,
-    ShieldCheck,
-    Sparkles,
-    TrendingUp,
-    Users,
+  ArrowRight,
+  Award,
+  BarChart3,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  FileText,
+  ShieldCheck,
+  TrendingUp,
+  Users
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -91,14 +90,14 @@ export default function PublicDashboardPage() {
       title: "Capaian SAKIP",
       description:
         "Pantau nilai akuntabilitas, predikat, dan dokumen kinerja OPD secara terbuka.",
-      href: "/publik/sakip",
+      href: "/sakip",
       icon: Award,
     },
     {
       title: "Analisis Jabatan",
       description:
         "Jelajahi kebutuhan jabatan, kualifikasi inti, dan kondisi beban kerja terkini.",
-      href: "/publik/anjab",
+      href: "/anjab",
       icon: BarChart3,
     },
   ];
@@ -113,12 +112,7 @@ export default function PublicDashboardPage() {
           <section className="relative overflow-hidden rounded-4xl border border-white/60 bg-card/85 p-6 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.45)] backdrop-blur sm:p-8 lg:p-10">
             <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-[radial-gradient(circle_at_top,rgba(234,179,8,0.2),transparent_60%)] lg:block" />
             <div className="relative grid gap-8 lg:grid-cols-[1.35fr_0.9fr] lg:items-center">
-              <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-700">
-                <Badge className="inline-flex rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Portal publik kelembagaan yang lebih modern
-                </Badge>
-
+              <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-700"> 
                 <div className="max-w-3xl space-y-4">
                   <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
                     Transparansi struktur kelembagaan, capaian kinerja, dan kebutuhan SDM dalam satu alur visual.
@@ -369,7 +363,7 @@ export default function PublicDashboardPage() {
                 </p>
               </div>
 
-              <Link href="/publik/login">
+              <Link href="/login">
                 <Button size="lg" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90">
                   Login Administrator
                 </Button>

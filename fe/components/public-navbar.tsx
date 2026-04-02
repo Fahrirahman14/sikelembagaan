@@ -3,15 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, Building2, Menu, Sparkles, X } from "lucide-react";
+import { Building2, LogInIcon, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const navItems = [
-  { label: "Dashboard", href: "/publik" },
-  { label: "Capaian SAKIP", href: "/publik/sakip" },
-  { label: "Analisis Jabatan", href: "/publik/anjab" },
+  { label: "Dashboard", href: "/" },
+  { label: "Capaian SAKIP", href: "/sakip" },
+  { label: "Analisis Jabatan", href: "/anjab" },
 ];
 
 export function PublicNavbar() {
@@ -21,7 +21,7 @@ export function PublicNavbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/40 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/55">
       <div className="mx-auto flex h-18 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
-        <Link href="/publik" className="flex min-w-0 items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
             <Building2 className="h-5 w-5" />
           </div>
@@ -40,7 +40,7 @@ export function PublicNavbar() {
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-2 md:flex">
+        <nav className="hidden items-end gap-2 md:flex">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -49,28 +49,19 @@ export function PublicNavbar() {
                 "rounded-full px-4 py-2 text-sm font-medium transition-all duration-300",
                 pathname === item.href
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/15"
-                  : "text-foreground hover:bg-primary/10 hover:text-primary"
+                  : "text-foreground hover:bg-primary/10 hover:text-primary",
               )}
             >
               {item.label}
             </Link>
           ))}
-        </nav>
-
-        <div className="hidden items-center gap-3 md:flex">
-          <div className="rounded-full border border-border/70 bg-background/80 px-3 py-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              Data OPD aktif dan dapat diakses publik
-            </span>
-          </div>
-          <Link href="/publik/login">
-            <Button className="rounded-full px-5 shadow-lg shadow-primary/15">
+          <Link href="/login">
+            <Button className="rounded-full px-5 shadow-lg shadow-primary/15 cursor-pointer">
+              <LogInIcon className="h-4 w-4" />
               Masuk
-              <ArrowUpRight className="h-4 w-4" />
             </Button>
           </Link>
-        </div>
+        </nav>
 
         <Button
           variant="ghost"
@@ -79,7 +70,11 @@ export function PublicNavbar() {
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
         >
-          {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {mobileOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
         </Button>
       </div>
 
@@ -95,7 +90,7 @@ export function PublicNavbar() {
                   "rounded-2xl px-4 py-3 text-sm font-medium transition-all",
                   pathname === item.href
                     ? "bg-primary text-primary-foreground"
-                    : "border border-transparent bg-background/80 text-foreground hover:border-primary/20 hover:bg-primary/5"
+                    : "border border-transparent bg-background/80 text-foreground hover:border-primary/20 hover:bg-primary/5",
                 )}
               >
                 {item.label}
@@ -110,10 +105,8 @@ export function PublicNavbar() {
               </p>
             </div>
             <div className="pt-1">
-              <Link href="/publik/login" onClick={() => setMobileOpen(false)}>
-                <Button className="w-full rounded-2xl">
-                  Masuk
-                </Button>
+              <Link href="/login" onClick={() => setMobileOpen(false)}>
+                <Button className="w-full rounded-2xl">Masuk</Button>
               </Link>
             </div>
           </nav>
