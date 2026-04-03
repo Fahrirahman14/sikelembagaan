@@ -1,24 +1,21 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
-    Award,
-    BarChart3,
-    Building2,
-    ChevronDown,
-    ChevronRight,
-    FileText,
-    HelpCircle,
-    Home,
-    LogOut,
-    Menu,
-    Settings,
-    ShieldCheck,
-    Sparkles,
-    Users,
-    X,
+  Award,
+  BarChart3,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  HelpCircle,
+  Home,
+  LogOut,
+  Menu,
+  Settings,
+  Users,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -162,7 +159,7 @@ export function AppSidebar() {
             </div>
           </div>
 
-          <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-4">
+          {/* <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-sidebar-foreground/50">
@@ -178,7 +175,7 @@ export function AppSidebar() {
             <p className="mt-3 text-xs leading-5 text-sidebar-foreground/60">
               Navigasi admin untuk OPD, Anjab, ABK, laporan, dan SAKIP.
             </p>
-          </div>
+          </div> */}
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-4">
@@ -186,7 +183,7 @@ export function AppSidebar() {
 
           <div className="pb-2 pt-6">
             <p className="px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-              Data Kelembagaan
+              Main Menu
             </p>
           </div>
 
@@ -251,11 +248,7 @@ export function AppSidebar() {
         </nav>
 
         <div className="border-t border-sidebar-border/70 p-4">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-sidebar-foreground/70">
-              <Sparkles className="h-3.5 w-3.5 text-sidebar-primary" />
-              Admin aktif
-            </div>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4"> 
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sidebar-accent text-sidebar-accent-foreground">
                 <span className="text-sm font-semibold">AD</span>

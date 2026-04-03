@@ -1,5 +1,4 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { TrendingUp } from "lucide-react";
 import { DashboardClient } from "./dashboard-client";
 
 export default function DashboardPage() {
@@ -11,7 +10,7 @@ export default function DashboardPage() {
         <div className="absolute left-0 top-10 -z-10 h-60 w-60 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
 
-        <header className="sticky top-0 z-30 border-b border-white/50 bg-background/70 backdrop-blur-xl supports-backdrop-filter:bg-background/55">
+        {/* <header className="sticky top-0 z-30 border-b border-white/50 bg-background/70 backdrop-blur-xl supports-backdrop-filter:bg-background/55 pt-4">
           <div className="flex h-18 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="ml-12 lg:ml-0">
               <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
@@ -28,7 +27,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </header>
+        </header> */}
 
         <div className="p-4 sm:p-6 lg:p-8">
           <DashboardClient />

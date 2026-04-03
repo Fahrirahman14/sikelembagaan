@@ -14,7 +14,8 @@ export function DashboardClient() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.dashboard.summary()
+    api.dashboard
+      .summary()
       .then(setSummary)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -76,28 +77,33 @@ export function DashboardClient() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total OPD"
-          value={loading ? "—" : s?.total_opd ?? 0}
+          value={loading ? "—" : (s?.total_opd ?? 0)}
           description="Organisasi Perangkat Daerah"
           icon={Building2}
           variant="primary"
         />
         <StatCard
           title="Total Jabatan"
-          value={loading ? "—" : s?.total_jabatan ?? 0}
+          value={loading ? "—" : (s?.total_jabatan ?? 0)}
           description="Jabatan terdata"
           icon={FileText}
+          variant="primary"
         />
         <StatCard
           title="Total Pegawai"
-          value={loading ? "—" : s?.total_pegawai ?? 0}
+          value={loading ? "—" : (s?.total_pegawai ?? 0)}
           description="Pegawai aktif lintas OPD"
           icon={BarChart3}
+          variant="primary"
         />
         <StatCard
           title="Nilai SAKIP"
-          value={loading ? "—" : `${(s?.rata_rata_nilai_sakip ?? 0).toFixed(1)}`}
+          value={
+            loading ? "—" : `${(s?.rata_rata_nilai_sakip ?? 0).toFixed(1)}`
+          }
           description="Rata-rata capaian SAKIP"
           icon={Award}
+          variant="primary"
         />
       </div>
 

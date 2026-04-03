@@ -7,46 +7,52 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useEffect, useState } from "react";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
 } from "recharts";
 
-const data = [
-  {
-    name: "Dinas Pendidikan",
-    kebutuhan: 280,
-    existing: 245,
-  },
-  {
-    name: "Dinas Kesehatan",
-    kebutuhan: 350,
-    existing: 312,
-  },
-  {
-    name: "BKD",
-    kebutuhan: 85,
-    existing: 78,
-  },
-  {
-    name: "Dinas PU",
-    kebutuhan: 200,
-    existing: 189,
-  },
-  {
-    name: "Setda",
-    kebutuhan: 170,
-    existing: 156,
-  },
-];
+type WorkloadData = {
+  name: string;
+  kebutuhan: number;
+  existing: number;
+};
 
 export function WorkloadChart() {
+  const [data, setData] = useState<WorkloadData[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      // TODO: Ganti dengan endpoint API Anda, contoh:
+      // const response = await fetch('/api/workload-analysis');
+      // const apiData = await response.json();
+      // setData(apiData);
+
+      // Simulasi pemanggilan API dengan mock data
+      const mockApiData: WorkloadData[] = [
+        { name: "Dinas Pendidikan", kebutuhan: 280, existing: 245 },
+        { name: "Dinas Kesehatan", kebutuhan: 350, existing: 312 },
+        { name: "BKD", kebutuhan: 85, existing: 78 },
+        { name: "Dinas PU", kebutuhan: 200, existing: 189 },
+        { name: "Setda", kebutuhan: 170, existing: 156 },
+      ];
+
+      // Simulasi network delay
+      setTimeout(() => {
+        setData(mockApiData);
+      }, 500);
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <Card className="col-span-full lg:col-span-2">
       <CardHeader>

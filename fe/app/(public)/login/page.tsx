@@ -157,8 +157,8 @@ export default function PublicLoginPage() {
             <div className="rounded-lg bg-muted/50 p-4">
               <p className="mb-2 text-sm font-medium text-foreground">Demo Credentials</p>
               <div className="space-y-1 text-xs text-muted-foreground">
-                <p>Email: <span className="font-mono">admin@opd.local</span></p>
-                <p>Password: <span className="font-mono">password123</span></p>
+                <p>Email: <span className="font-mono">admin@admin</span></p>
+                <p>Password: <span className="font-mono">admin</span></p>
               </div>
             </div>
           </CardContent>
