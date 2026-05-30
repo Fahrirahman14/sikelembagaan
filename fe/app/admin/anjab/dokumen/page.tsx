@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,81 +151,63 @@ export default function DokumenAnjabPage() {
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={FileText}
-        eyebrow="Dokumen analisis jabatan"
-        title="Kelola siklus dokumen Anjab dengan tampilan yang lebih modern dan terarah."
-        description="Area dokumen sekarang memakai shell admin baru, lengkap dengan status yang lebih mudah dipindai, filter yang lebih nyaman, dan aksi pembuatan dokumen yang lebih menonjol."
-        actions={
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
-                <Plus className="h-4 w-4" />
-                Buat Dokumen
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Buat Dokumen Anjab Baru</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="space-y-2">
-                  <Label>OPD</Label>
-                  <Select value={newOpdId} onValueChange={setNewOpdId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih OPD" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {opdList.map((opd) => (
-                        <SelectItem key={opd.id} value={opd.id}>
-                          {opd.nama}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Periode</Label>
-                  <Select value={newPeriode} onValueChange={setNewPeriode}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih periode" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2026">2026</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Nomor Dokumen</Label>
-                  <Input placeholder="DOK/ANJAB/XXX/2024" value={newNomor} onChange={(e) => setNewNomor(e.target.value)} />
-                </div>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Dokumen Anjab</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Dokumen Anjab</h1>
+        </div>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
+              <Plus className="h-4 w-4" />
+              Buat Dokumen
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Buat Dokumen Anjab Baru</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>OPD</Label>
+                <Select value={newOpdId} onValueChange={setNewOpdId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih OPD" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {opdList.map((opd) => (
+                      <SelectItem key={opd.id} value={opd.id}>
+                        {opd.nama}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateOpen(false)}>Batal</Button>
-                <Button onClick={handleCreate}>Buat Dokumen</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Total dokumen
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{stats.total}</p>
+              <div className="space-y-2">
+                <Label>Periode</Label>
+                <Select value={newPeriode} onValueChange={setNewPeriode}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih periode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="2024">2024</SelectItem>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2026">2026</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Nomor Dokumen</Label>
+                <Input placeholder="DOK/ANJAB/XXX/2024" value={newNomor} onChange={(e) => setNewNomor(e.target.value)} />
+              </div>
             </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Siap disahkan
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{stats.review + stats.disetujui}</p>
-            </div>
-          </>
-        }
-      />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>Batal</Button>
+              <Button onClick={handleCreate}>Buat Dokumen</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
           {/* Stats */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

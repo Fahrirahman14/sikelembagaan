@@ -2,7 +2,6 @@
 
 import { AktivitasForm, AktivitasFormData } from "@/components/abk/aktivitas-form";
 import { AktivitasTable } from "@/components/abk/aktivitas-table";
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,42 +46,22 @@ export default function InputAktivitasPage() {
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={ClipboardList}
-        eyebrow="Input aktivitas kerja"
-        title="Susun aktivitas kerja sebagai fondasi utama perhitungan ABK yang lebih akurat."
-        description="Form dan tabel aktivitas disusun ulang dalam shell admin yang konsisten agar proses input, import, dan review data terasa lebih cepat."
-        actions={
-          <>
-            <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
-              <Upload className="h-4 w-4" />
-              Import Excel
-            </Button>
-            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
-              <Download className="h-4 w-4" />
-              Export Data
-            </Button>
-          </>
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Total aktivitas
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{aktivitasList.length}</p>
-              <p className="mt-1 text-sm text-muted-foreground">aktivitas terdaftar</p>
-            </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Jabatan tercakup
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{totalJabatan}</p>
-              <p className="mt-1 text-sm text-muted-foreground">jabatan berbeda</p>
-            </div>
-          </>
-        }
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">ABK - Aktivitas</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Input Aktivitas Kerja</h1>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
+            <Upload className="h-4 w-4" />
+            Import Excel
+          </Button>
+          <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
+            <Download className="h-4 w-4" />
+            Export Data
+          </Button>
+        </div>
+      </div>
 
       <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

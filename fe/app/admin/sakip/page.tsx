@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,7 +48,6 @@ import {
     Plus,
     Search,
     ShieldCheck,
-    Sparkles,
     Star,
     Trash2,
     Upload,
@@ -204,37 +202,23 @@ export default function AdminSAKIPPage() {
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={Sparkles}
-        eyebrow="Manajemen dokumen dan nilai SAKIP"
-        title="Kelola dokumen, penilaian, dan progres SAKIP dari workspace admin yang lebih rapi."
-        description="Pusatkan unggahan dokumen SAKIP dan pencatatan nilai hasil evaluasi per OPD per tahun dalam satu halaman."
-        actions={
-          activeTab === "dokumen" ? (
-            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={() => setUploadDialogOpen(true)}>
-              <Upload className="h-4 w-4" />
-              Upload Dokumen
-            </Button>
-          ) : (
-            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={openCreateNilai}>
-              <Plus className="h-4 w-4" />
-              Tambah Nilai SAKIP
-            </Button>
-          )
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Total dokumen</p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{dokumenList.length}</p>
-            </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Rata-rata nilai</p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{avgNilai ? avgNilai.toFixed(1) : "—"}</p>
-            </div>
-          </>
-        }
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">SAKIP</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Manajemen SAKIP</h1>
+        </div>
+        {activeTab === "dokumen" ? (
+          <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={() => setUploadDialogOpen(true)}>
+            <Upload className="h-4 w-4" />
+            Upload Dokumen
+          </Button>
+        ) : (
+          <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={openCreateNilai}>
+            <Plus className="h-4 w-4" />
+            Tambah Nilai SAKIP
+          </Button>
+        )}
+      </div>
 
       {/* Stats */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

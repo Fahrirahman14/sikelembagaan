@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,30 +224,16 @@ export default function SpesifikasiJabatanPage() {
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={ClipboardList}
-        eyebrow="Spesifikasi jabatan"
-        title="Persyaratan pendidikan dan kompetensi jabatan kini tersaji lebih jelas."
-        description="Kelola spesifikasi jabatan: pendidikan formal, pelatihan, pengalaman, kompetensi manajerial/teknis, dan kondisi fisik."
-        actions={
-          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Total jabatan</p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{jabatanList.length}</p>
-            </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Spesifikasi terisi</p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{Object.keys(spesifikasiMap).length}</p>
-            </div>
-          </>
-        }
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Spesifikasi jabatan</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Spesifikasi Jabatan</h1>
+        </div>
+        <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
+          <Download className="h-4 w-4" />
+          Export
+        </Button>
+      </div>
 
       {/* Stats */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

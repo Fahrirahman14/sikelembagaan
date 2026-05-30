@@ -1,6 +1,5 @@
 "use client";
 
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,6 @@ import {
     Filter,
     Minus,
     Printer,
-    Sparkles,
     TrendingDown,
     TrendingUp,
     Users
@@ -63,44 +61,22 @@ export default function LaporanPage() {
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={FileText}
-        eyebrow="Pusat laporan dan rekap"
-        title="Pantau ringkasan Anjab dan ABK dengan tampilan laporan admin yang lebih matang."
-        description="Filter, progres, dan tab laporan kini berada dalam bahasa visual yang sama dengan dashboard admin, sehingga pembacaan rekap menjadi lebih nyaman."
-        actions={
-          <>
-            <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
-              <Printer className="h-4 w-4" />
-              Cetak
-            </Button>
-            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
-              <Download className="h-4 w-4" />
-              Export PDF
-            </Button>
-          </>
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Kebutuhan total
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{kebutuhanTotal}</p>
-              <p className="mt-1 text-sm text-muted-foreground">kebutuhan pegawai</p>
-            </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Selisih pegawai
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">
-                {selisihPegawai > 0 ? `+${selisihPegawai}` : selisihPegawai}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">dibanding kebutuhan</p>
-            </div>
-          </>
-        }
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pusat laporan</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Laporan &amp; Rekap</h1>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
+            <Printer className="h-4 w-4" />
+            Cetak
+          </Button>
+          <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
+            <Download className="h-4 w-4" />
+            Export PDF
+          </Button>
+        </div>
+      </div>
 
       <Card className="mb-6 border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
             <CardContent className="pt-6">
@@ -135,7 +111,7 @@ export default function LaporanPage() {
                   </Select>
                 </div>
                 <Badge className="w-fit rounded-full border border-primary/15 bg-primary/10 px-3 py-2 text-primary">
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Calendar className="mr-2 h-4 w-4" />
                   Periode aktif {periode}
                 </Badge>
               </div>

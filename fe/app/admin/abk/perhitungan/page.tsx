@@ -1,86 +1,22 @@
 "use client";
 
 import { PerhitunganABK } from "@/components/abk/perhitungan-abk";
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { api, type PerhitunganABK as PerhitunganABKType } from "@/lib/api";
-import { BarChart3, Gauge } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
 
 export default function PerhitunganPage() {
-  const [items, setItems] = useState<PerhitunganABKType[]>([]);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const data = await api.perhitungan.list();
-      setItems(data);
-    } catch {
-      // keep empty
-    }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  const avgBeban = items.length
-    ? items.reduce((total, item) => total + item.beban_kerja, 0) / items.length
-    : 0;
-  const totalKebutuhan = items.reduce((total, item) => total + item.kebutuhan_pegawai, 0);
-  const posisiKekurangan = items.filter((item) => item.keterangan === "Kekurangan").length;
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={BarChart3}
-        eyebrow="Analisis beban kerja"
-        title="Pantau kebutuhan pegawai dan indeks beban kerja dalam satu tampilan yang lebih jelas."
-        description="Halaman ini merangkum kondisi perhitungan ABK agar tim dapat membaca prioritas kebutuhan pegawai dengan lebih cepat dan nyaman."
-        actions={
-          <>
-            <Button className="rounded-xl shadow-lg shadow-primary/15">Perbarui Perhitungan</Button>
-            <Badge className="rounded-full border border-border/80 bg-background/80 px-3 py-2 text-muted-foreground">
-              Data simulasi aktif
-            </Badge>
-          </>
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Rata-rata beban
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold text-foreground">
-                    {avgBeban.toFixed(2)}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                  <Gauge className="h-5 w-5" />
-                </div>
-              </div>
-            </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Kebutuhan pegawai
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold text-foreground">{totalKebutuhan}</p>
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                    Posisi kurang SDM
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold text-foreground">{posisiKekurangan}</p>
-                </div>
-              </div>
-            </div>
-          </>
-        }
-      />
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">ABK - Perhitungan</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Perhitungan ABK</h1>
+        </div>
+        <Button className="rounded-xl shadow-lg shadow-primary/15">Perbarui Perhitungan</Button>
+      </div>
+
 
       <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
         <CardContent className="p-4 sm:p-6">
