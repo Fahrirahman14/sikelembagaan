@@ -147,7 +147,7 @@ export default function PublicAnjabPage() {
   useEffect(() => {
     api.jabatan.list().then(setJabatanList);
     api.opd.list().then(setOpdList);
-    api.perhitunganAbk.list().then(setPerhitunganList);
+    api.perhitungan.list().then(setPerhitunganList);
   }, []);
 
   const filteredJabatan = jabatanList.filter((jabatan) => {

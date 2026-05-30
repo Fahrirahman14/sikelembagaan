@@ -1,6 +1,7 @@
 "use client";
 
-import { AppSidebar } from "@/components/app-sidebar";
+import { AdminPageHeader } from "@/components/admin-page-header";
+import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,9 +30,14 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { api, type DokumenSAKIP, type OPD } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import {
+    api,
+    type DokumenSAKIP,
+    type NilaiSAKIP,
+    type OPD,
+} from "@/lib/api";
 import {
     AlertCircle,
     Award,
@@ -40,462 +45,251 @@ import {
     Edit,
     FileText,
     Link as LinkIcon,
+    Loader2,
+    Plus,
     Search,
     ShieldCheck,
     Sparkles,
+    Star,
     Trash2,
     Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
+const PREDIKAT_OPTIONS = ["AA", "A", "BB", "B", "CC", "C", "D"];
 
-
-interface ReviewScore {
-  id: string;
-  dokumentId: string;
-  nilaiReview: number;
-  catatan: string;
-  reviewedBy: string;
-  reviewedAt: string;
-}
-
-function getReviewTone(score?: number) {
-  if (typeof score !== "number") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-
-  if (score >= 85) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-
-  if (score >= 70) {
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  }
-
-  return "border-red-200 bg-red-50 text-red-700";
+function predikatColor(predikat: string) {
+  if (predikat === "AA") return "bg-emerald-100 text-emerald-700 border-emerald-200";
+  if (predikat === "A") return "bg-green-100 text-green-700 border-green-200";
+  if (predikat === "BB") return "bg-blue-100 text-blue-700 border-blue-200";
+  if (predikat === "B") return "bg-sky-100 text-sky-700 border-sky-200";
+  if (predikat === "CC") return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  return "bg-red-100 text-red-700 border-red-200";
 }
 
 export default function AdminSAKIPPage() {
-  const [search, setSearch] = useState("");
-  const [opdFilter, setOpdFilter] = useState("all");
-  const [jenisFilter, setJenisFilter] = useState("all");
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [selectedDocument, setSelectedDocument] = useState<DokumenSAKIP | null>(null);
-  
-  // Form states
-  const [uploadForm, setUploadForm] = useState<{
-    opdId: string;
-    namaDokumen: string;
-    jenisDokumen: "renstra" | "renja" | "lakip" | "iku" | "tapkin" | "lainnya";
-    linkDokumen: string;
-    filePath: string;
-    tahun: number;
-  }>({
-    opdId: "",
-    namaDokumen: "",
-    jenisDokumen: "renstra",
-    linkDokumen: "",
-    filePath: "",
-    tahun: new Date().getFullYear(),
-  });
+  const [activeTab, setActiveTab] = useState("dokumen");
 
-  const [reviewForm, setReviewForm] = useState({
-    nilaiReview: 0,
-    catatan: "",
-  });
-
+  // OPD list
   const [opdList, setOpdList] = useState<OPD[]>([]);
-  const [uploadedDocuments, setUploadedDocuments] = useState<DokumenSAKIP[]>([]);
-  const [reviewScores, setReviewScores] = useState<ReviewScore[]>([]);
+
+  // Dokumen SAKIP state
+  const [dokumenList, setDokumenList] = useState<DokumenSAKIP[]>([]);
+  const [dokumenSearch, setDokumenSearch] = useState("");
+  const [dokumenOpdFilter, setDokumenOpdFilter] = useState("all");
+  const [dokumenJenisFilter, setDokumenJenisFilter] = useState("all");
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    opdId: "", namaDokumen: "", jenisDokumen: "renstra" as string,
+    linkDokumen: "", tahun: new Date().getFullYear(),
+  });
+
+  // Nilai SAKIP state
+  const [nilaiList, setNilaiList] = useState<NilaiSAKIP[]>([]);
+  const [nilaiSearch, setNilaiSearch] = useState("");
+  const [nilaiTahunFilter, setNilaiTahunFilter] = useState("all");
+  const [nilaiDialogOpen, setNilaiDialogOpen] = useState(false);
+  const [nilaiLoading, setNilaiLoading] = useState(false);
+  const [selectedNilai, setSelectedNilai] = useState<NilaiSAKIP | null>(null);
+  const [nilaiForm, setNilaiForm] = useState({
+    opdId: "", tahun: new Date().getFullYear(),
+    nilaiTotal: 0, predikat: "B" as string, catatan: "",
+  });
 
   useEffect(() => {
     api.opd.list().then(setOpdList);
-    api.dokumenSakip.list().then(setUploadedDocuments);
+    api.dokumenSakip.list().then(setDokumenList);
+    api.nilaiSakip.list().then(setNilaiList);
   }, []);
 
-  const filteredDocuments = uploadedDocuments.filter((doc) => {
+  // ---- Dokumen SAKIP handlers ----
+  const filteredDokumen = dokumenList.filter((doc) => {
     const matchSearch =
-      doc.nama_dokumen.toLowerCase().includes(search.toLowerCase()) ||
-      (doc.opd_nama ?? "").toLowerCase().includes(search.toLowerCase());
-    const matchOpd = opdFilter === "all" || doc.opd_id === opdFilter;
-    const matchJenis = jenisFilter === "all" || doc.jenis_dokumen === jenisFilter;
+      doc.nama_dokumen.toLowerCase().includes(dokumenSearch.toLowerCase()) ||
+      (doc.opd_nama ?? "").toLowerCase().includes(dokumenSearch.toLowerCase());
+    const matchOpd = dokumenOpdFilter === "all" || doc.opd_id === dokumenOpdFilter;
+    const matchJenis = dokumenJenisFilter === "all" || doc.jenis_dokumen === dokumenJenisFilter;
     return matchSearch && matchOpd && matchJenis;
   });
 
-  const handleUploadSubmit = async () => {
+  async function handleUploadSubmit() {
     if (!uploadForm.opdId || !uploadForm.namaDokumen) {
-      alert("Mohon isi semua field yang diperlukan");
+      toast.error("Mohon isi OPD dan nama dokumen");
       return;
     }
-    await api.dokumenSakip.create({
-      opd_id: uploadForm.opdId,
-      nama_dokumen: uploadForm.namaDokumen,
-      jenis_dokumen: uploadForm.jenisDokumen,
-      tahun: uploadForm.tahun,
-      file_path: uploadForm.linkDokumen || uploadForm.filePath || "",
-      uploaded_by: "Admin",
-    });
-    const updated = await api.dokumenSakip.list();
-    setUploadedDocuments(updated);
-    setUploadForm({
-      opdId: "",
-      namaDokumen: "",
-      jenisDokumen: "renstra",
-      linkDokumen: "",
-      filePath: "",
-      tahun: new Date().getFullYear(),
-    });
-    setUploadDialogOpen(false);
-  };
+    setUploadLoading(true);
+    try {
+      await api.dokumenSakip.create({
+        opd_id: uploadForm.opdId,
+        nama_dokumen: uploadForm.namaDokumen,
+        jenis_dokumen: uploadForm.jenisDokumen,
+        tahun: uploadForm.tahun,
+        file_path: uploadForm.linkDokumen || "",
+        uploaded_by: "Admin",
+      });
+      const updated = await api.dokumenSakip.list();
+      setDokumenList(updated);
+      toast.success("Dokumen SAKIP berhasil diupload");
+      setUploadDialogOpen(false);
+      setUploadForm({ opdId: "", namaDokumen: "", jenisDokumen: "renstra", linkDokumen: "", tahun: new Date().getFullYear() });
+    } catch {
+      toast.error("Gagal mengupload dokumen");
+    } finally {
+      setUploadLoading(false);
+    }
+  }
 
-  const handleReviewSubmit = () => {
-    if (!selectedDocument || reviewForm.nilaiReview < 0 || reviewForm.nilaiReview > 100) {
-      alert("Nilai harus antara 0-100");
+  async function handleDeleteDokumen(id: string) {
+    try {
+      await api.dokumenSakip.delete(id);
+      setDokumenList((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Dokumen dihapus");
+    } catch {
+      toast.error("Gagal menghapus dokumen");
+    }
+  }
+
+  // ---- Nilai SAKIP handlers ----
+  const availableTahun = [...new Set(nilaiList.map((n) => n.tahun))].sort((a, b) => b - a);
+
+  const filteredNilai = nilaiList.filter((n) => {
+    const matchSearch =
+      (n.opd_nama ?? "").toLowerCase().includes(nilaiSearch.toLowerCase());
+    const matchTahun = nilaiTahunFilter === "all" || String(n.tahun) === nilaiTahunFilter;
+    return matchSearch && matchTahun;
+  });
+
+  function openCreateNilai() {
+    setSelectedNilai(null);
+    setNilaiForm({ opdId: "", tahun: new Date().getFullYear(), nilaiTotal: 0, predikat: "B", catatan: "" });
+    setNilaiDialogOpen(true);
+  }
+
+  function openEditNilai(n: NilaiSAKIP) {
+    setSelectedNilai(n);
+    setNilaiForm({ opdId: n.opd_id, tahun: n.tahun, nilaiTotal: n.nilai_total, predikat: n.predikat || "B", catatan: "" });
+    setNilaiDialogOpen(true);
+  }
+
+  async function handleSaveNilai() {
+    if (!nilaiForm.opdId || !nilaiForm.tahun) {
+      toast.error("OPD dan tahun wajib diisi");
       return;
     }
+    setNilaiLoading(true);
+    try {
+      await api.nilaiSakip.upsert({
+        opd_id: nilaiForm.opdId,
+        tahun: nilaiForm.tahun,
+        nilai_total: nilaiForm.nilaiTotal,
+        predikat: nilaiForm.predikat,
+        komponen_nilai: undefined,
+      });
+      const updated = await api.nilaiSakip.list();
+      setNilaiList(updated);
+      toast.success(selectedNilai ? "Nilai SAKIP diperbarui" : "Nilai SAKIP berhasil disimpan");
+      setNilaiDialogOpen(false);
+    } catch {
+      toast.error("Gagal menyimpan nilai SAKIP");
+    } finally {
+      setNilaiLoading(false);
+    }
+  }
 
-    const newReview: ReviewScore = {
-      id: `REV${Date.now()}`,
-      dokumentId: selectedDocument.id,
-      nilaiReview: reviewForm.nilaiReview,
-      catatan: reviewForm.catatan,
-      reviewedBy: "Admin",
-      reviewedAt: new Date().toISOString().split("T")[0],
-    };
-
-    setReviewScores([...reviewScores, newReview]);
-    setReviewForm({ nilaiReview: 0, catatan: "" });
-    setReviewDialogOpen(false);
-    setSelectedDocument(null);
-  };
-
-  const handleDeleteDocument = async (id: string) => {
-    await api.dokumenSakip.delete(id);
-    setUploadedDocuments((prev) => prev.filter((doc) => doc.id !== id));
-  };
-
-  const getReviewForDocument = (docId: string) => {
-    return reviewScores.find((rev) => rev.dokumentId === docId);
-  };
-
-  const stats = {
-    totalDokumen: uploadedDocuments.length,
-    sudahDireview: reviewScores.length,
-    belumDireview: uploadedDocuments.length - reviewScores.length,
-  };
-  const avgReview = reviewScores.length
-    ? reviewScores.reduce((total, item) => total + item.nilaiReview, 0) / reviewScores.length
+  const avgNilai = nilaiList.length
+    ? nilaiList.reduce((sum, n) => sum + n.nilai_total, 0) / nilaiList.length
     : 0;
-  const latestDocument = [...uploadedDocuments].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-  const activeFilters = [
-    search ? `Pencarian: ${search}` : null,
-    opdFilter !== "all"
-      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
-      : null,
-    jenisFilter !== "all" ? `Jenis: ${jenisFilter.toUpperCase()}` : null,
-  ].filter((value): value is string => Boolean(value));
 
   return (
-    <div className="min-h-screen bg-background">
-      <AppSidebar />
-      <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(39,81,191,0.1),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(232,183,35,0.16),transparent_20%)] lg:pl-72">
-        <div className="absolute left-0 top-10 -z-10 h-60 w-60 rounded-full bg-primary/10 blur-3xl" />
-        <div className="absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
-
-        <div className="p-6 lg:p-8">
-          <section className="mb-8 overflow-hidden rounded-4xl border border-white/60 bg-card/85 p-6 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.45)] backdrop-blur sm:p-8">
-            <div className="grid gap-8 lg:grid-cols-[1.2fr_0.9fr] lg:items-center">
-              <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-700">
-                <Badge className="inline-flex rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Manajemen dokumen dan review SAKIP
-                </Badge>
-
-                <div className="space-y-4">
-                  <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                    Kelola dokumen, review, dan progres SAKIP dari workspace admin yang lebih rapi.
-                  </h1>
-                  <p className="text-base leading-7 text-muted-foreground sm:text-lg">
-                    Halaman ini memusatkan unggahan dokumen, penilaian review, dan penyaringan data supaya tim bisa bekerja lebih cepat tanpa kehilangan konteks.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 animate-in fade-in-0 slide-in-from-right-6 duration-700">
-                <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                        Nilai review rata-rata
-                      </p>
-                      <p className="mt-3 text-3xl font-semibold text-foreground">
-                        {avgReview ? avgReview.toFixed(1) : "0.0"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-                      <Award className="h-5 w-5" />
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                        Dokumen terbaru
-                      </p>
-                      <p className="mt-3 font-semibold text-foreground">
-                        {latestDocument?.nama_dokumen ?? "Belum ada dokumen"}
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {latestDocument?.opd_nama ?? "-"}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl bg-accent p-3 text-accent-foreground">
-                      <ShieldCheck className="h-5 w-5" />
-                    </div>
-                  </div>
-                </div>
-              </div>
+    <AdminPageShell>
+      <AdminPageHeader
+        icon={Sparkles}
+        eyebrow="Manajemen dokumen dan nilai SAKIP"
+        title="Kelola dokumen, penilaian, dan progres SAKIP dari workspace admin yang lebih rapi."
+        description="Pusatkan unggahan dokumen SAKIP dan pencatatan nilai hasil evaluasi per OPD per tahun dalam satu halaman."
+        actions={
+          activeTab === "dokumen" ? (
+            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4" />
+              Upload Dokumen
+            </Button>
+          ) : (
+            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={openCreateNilai}>
+              <Plus className="h-4 w-4" />
+              Tambah Nilai SAKIP
+            </Button>
+          )
+        }
+        aside={
+          <>
+            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Total dokumen</p>
+              <p className="mt-3 text-3xl font-semibold text-foreground">{dokumenList.length}</p>
             </div>
-          </section>
-
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">Capaian SAKIP</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Kelola dokumen dan nilai review SAKIP dengan tampilan kerja yang lebih nyaman.
-              </p>
+            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
+              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Rata-rata nilai</p>
+              <p className="mt-3 text-3xl font-semibold text-foreground">{avgNilai ? avgNilai.toFixed(1) : "—"}</p>
             </div>
-            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
-                  <Upload className="h-4 w-4" />
-                  Upload Dokumen SAKIP
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Upload Dokumen SAKIP</DialogTitle>
-                  <DialogDescription>
-                    Upload dokumen SAKIP atau link eksternal ke file SAKIP
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="opd">Organisasi Perangkat Daerah (OPD) *</Label>
-                    <Select value={uploadForm.opdId} onValueChange={(value) => setUploadForm({ ...uploadForm, opdId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih OPD" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {opdList.map((opd) => (
-                          <SelectItem key={opd.id} value={opd.id}>
-                            {opd.nama}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+          </>
+        }
+      />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="nama-dokumen">Nama Dokumen *</Label>
-                    <Input
-                      id="nama-dokumen"
-                      placeholder="Contoh: Renstra 2024-2028"
-                      value={uploadForm.namaDokumen}
-                      onChange={(e) =>
-                        setUploadForm({ ...uploadForm, namaDokumen: e.target.value })
-                      }
-                    />
-                  </div>
+      {/* Stats */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Total Dokumen", value: dokumenList.length, Icon: FileText, color: "bg-primary text-primary-foreground" },
+          { label: "OPD Terdata Nilai", value: nilaiList.length, Icon: CheckCircle, color: "bg-green-500 text-white" },
+          { label: "Belum Ada Nilai", value: Math.max(0, opdList.length - nilaiList.length), Icon: AlertCircle, color: "bg-yellow-500 text-white" },
+          { label: "Rata-rata Nilai", value: avgNilai ? avgNilai.toFixed(1) : "—", Icon: ShieldCheck, color: "bg-accent text-accent-foreground" },
+        ].map(({ label, value, Icon, color }) => (
+          <Card key={label} className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
+            <CardContent className="flex items-center gap-4 p-6">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${color}`}>
+                <Icon className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{value}</p>
+                <p className="text-sm text-muted-foreground">{label}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="jenis">Jenis Dokumen *</Label>
-                      <Select
-                        value={uploadForm.jenisDokumen}
-                        onValueChange={(value) =>
-                          setUploadForm({
-                            ...uploadForm,
-                            jenisDokumen: value as "renstra" | "renja" | "lakip" | "iku" | "tapkin" | "lainnya",
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="renstra">Renstra</SelectItem>
-                          <SelectItem value="renja">Renja</SelectItem>
-                          <SelectItem value="lakip">LAKIP</SelectItem>
-                          <SelectItem value="iku">IKU</SelectItem>
-                          <SelectItem value="tapkin">Tapkin</SelectItem>
-                          <SelectItem value="lainnya">Lainnya</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="tahun">Tahun *</Label>
-                      <Input
-                        id="tahun"
-                        type="number"
-                        value={uploadForm.tahun}
-                        onChange={(e) =>
-                          setUploadForm({ ...uploadForm, tahun: parseInt(e.target.value) })
-                        }
-                      />
-                    </div>
-                  </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-6 rounded-xl border border-border/70 bg-background/80">
+          <TabsTrigger value="dokumen" className="rounded-lg">
+            <FileText className="mr-2 h-4 w-4" /> Dokumen SAKIP
+          </TabsTrigger>
+          <TabsTrigger value="nilai" className="rounded-lg">
+            <Award className="mr-2 h-4 w-4" /> Nilai SAKIP
+          </TabsTrigger>
+        </TabsList>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="link">Link Eksternal (Opsional)</Label>
-                    <Input
-                      id="link"
-                      placeholder="https://..."
-                      value={uploadForm.linkDokumen}
-                      onChange={(e) =>
-                        setUploadForm({ ...uploadForm, linkDokumen: e.target.value })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Jika dokumen sudah tersimpan di website lain
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="file">Upload File (Opsional)</Label>
-                    <Input
-                      id="file"
-                      type="file"
-                      accept=".pdf,.doc,.docx,.xlsx"
-                      onChange={(e) => {
-                        // In a real app, this would handle file upload
-                        if (e.target.files?.[0]) {
-                          setUploadForm({
-                            ...uploadForm,
-                            filePath: `/uploads/${e.target.files[0].name}`,
-                          });
-                        }
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Format: PDF, DOC, DOCX, XLSX. Max 10MB
-                    </p>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
-                    Batal
-                  </Button>
-                  <Button onClick={handleUploadSubmit}>Upload</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary">
-                  <FileText className="h-6 w-6 text-primary-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.totalDokumen}</p>
-                  <p className="text-sm text-muted-foreground">Total Dokumen</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-500">
-                  <CheckCircle className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.sudahDireview}</p>
-                  <p className="text-sm text-muted-foreground">Sudah Direview</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-yellow-500">
-                  <AlertCircle className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{stats.belumDireview}</p>
-                  <p className="text-sm text-muted-foreground">Belum Direview</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="flex items-center gap-4 p-6">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent">
-                  <ShieldCheck className="h-6 w-6 text-accent-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{avgReview ? avgReview.toFixed(1) : "0.0"}</p>
-                  <p className="text-sm text-muted-foreground">Rata-rata Review</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
+        {/* ===== TAB DOKUMEN ===== */}
+        <TabsContent value="dokumen">
+          {/* Filter Dokumen */}
           <Card className="mb-6 border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
             <CardContent className="pt-6">
-              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                    Panel filter
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {filteredDocuments.length} dokumen tampil dari {uploadedDocuments.length} total data.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {activeFilters.length > 0 ? (
-                    activeFilters.map((filter) => (
-                      <Badge
-                        key={filter}
-                        className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-primary"
-                      >
-                        {filter}
-                      </Badge>
-                    ))
-                  ) : (
-                    <Badge className="rounded-full border border-border/80 bg-background/80 px-3 py-1 text-muted-foreground">
-                      Semua data aktif
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
               <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari dokumen..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="h-11 rounded-xl border-border/70 bg-background/80 pl-10"
-                    />
-                  </div>
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Cari dokumen..." value={dokumenSearch} onChange={(e) => setDokumenSearch(e.target.value)}
+                    className="h-11 rounded-xl border-border/70 bg-background/80 pl-10" />
                 </div>
-                <Select value={opdFilter} onValueChange={setOpdFilter}>
+                <Select value={dokumenOpdFilter} onValueChange={setDokumenOpdFilter}>
                   <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-48">
                     <SelectValue placeholder="Filter OPD" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua OPD</SelectItem>
-                    {opdList.map((opd) => (
-                      <SelectItem key={opd.id} value={opd.id}>
-                        {opd.nama}
-                      </SelectItem>
-                    ))}
+                    {opdList.map((opd) => <SelectItem key={opd.id} value={opd.id}>{opd.nama}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Select value={jenisFilter} onValueChange={setJenisFilter}>
+                <Select value={dokumenJenisFilter} onValueChange={setDokumenJenisFilter}>
                   <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-40">
                     <SelectValue placeholder="Filter Jenis" />
                   </SelectTrigger>
@@ -506,26 +300,17 @@ export default function AdminSAKIPPage() {
                     <SelectItem value="lakip">LAKIP</SelectItem>
                     <SelectItem value="iku">IKU</SelectItem>
                     <SelectItem value="tapkin">Tapkin</SelectItem>
+                    <SelectItem value="lainnya">Lainnya</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-xl border-border/70"
-                  onClick={() => {
-                    setSearch("");
-                    setOpdFilter("all");
-                    setJenisFilter("all");
-                  }}
-                >
-                  Reset
-                </Button>
+                <Button variant="outline" className="h-11 rounded-xl border-border/70" onClick={() => { setDokumenSearch(""); setDokumenOpdFilter("all"); setDokumenJenisFilter("all"); }}>Reset</Button>
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
             <CardHeader className="border-b border-border/70">
-              <CardTitle className="text-lg">Daftar Dokumen SAKIP</CardTitle>
+              <CardTitle className="text-lg">Daftar Dokumen SAKIP ({filteredDokumen.length})</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -536,182 +321,233 @@ export default function AdminSAKIPPage() {
                       <TableHead>OPD</TableHead>
                       <TableHead>Jenis</TableHead>
                       <TableHead className="text-center">Tahun</TableHead>
-                      <TableHead>Nilai Review</TableHead>
                       <TableHead>Upload Oleh</TableHead>
                       <TableHead className="text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDocuments.length === 0 ? (
+                    {filteredDokumen.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
-                          Tidak ada dokumen ditemukan
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Tidak ada dokumen ditemukan</TableCell>
+                      </TableRow>
+                    ) : filteredDokumen.map((doc) => (
+                      <TableRow key={doc.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-foreground">{doc.nama_dokumen}</p>
+                            <p className="text-xs text-muted-foreground">{new Date(doc.created_at).toLocaleDateString("id-ID")}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{doc.opd_nama}</TableCell>
+                        <TableCell><Badge variant="outline">{doc.jenis_dokumen.toUpperCase()}</Badge></TableCell>
+                        <TableCell className="text-center">{doc.tahun}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{doc.uploaded_by}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {doc.file_path && (
+                              <Button variant="ghost" size="icon" title="Buka link" asChild>
+                                <a href={doc.file_path} target="_blank" rel="noopener noreferrer">
+                                  <LinkIcon className="h-4 w-4" />
+                                </a>
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="text-destructive" title="Hapus" onClick={() => handleDeleteDokumen(doc.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    ) : (
-                      filteredDocuments.map((doc) => {
-                        const review = getReviewForDocument(doc.id);
-                        return (
-                          <TableRow key={doc.id}>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-foreground">{doc.nama_dokumen}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(doc.created_at).toLocaleDateString("id-ID")}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{doc.opd_nama}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{doc.jenis_dokumen.toUpperCase()}</Badge>
-                            </TableCell>
-                            <TableCell className="text-center">{doc.tahun}</TableCell>
-                            <TableCell>
-                              {review ? (
-                                <Badge className={cn("rounded-full border px-3 py-1", getReviewTone(review.nilaiReview))}>
-                                  {review.nilaiReview}
-                                </Badge>
-                              ) : (
-                                <Badge className={cn("rounded-full border px-3 py-1", getReviewTone())}>
-                                  Belum Review
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {doc.uploaded_by}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                {doc.file_path && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    asChild
-                                    title="Buka link dokumen"
-                                  >
-                                    <a
-                                      href={doc.file_path}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <LinkIcon className="h-4 w-4" />
-                                    </a>
-                                  </Button>
-                                )}
-                                <Dialog open={reviewDialogOpen && selectedDocument?.id === doc.id} onOpenChange={(open) => {
-                                  if (open) {
-                                    setSelectedDocument(doc);
-                                  }
-                                  setReviewDialogOpen(open);
-                                }}>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        setSelectedDocument(doc);
-                                        setReviewDialogOpen(true);
-                                      }}
-                                      title="Review dokumen"
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </DialogTrigger>
-                                </Dialog>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive"
-                                  onClick={() => handleDeleteDocument(doc.id)}
-                                  title="Hapus dokumen"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
+                    ))}
                   </TableBody>
                 </Table>
               </div>
             </CardContent>
           </Card>
-        </div>
-      </main>
+        </TabsContent>
 
-      {/* Review Dialog */}
-      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Review Dokumen SAKIP</DialogTitle>
-            <DialogDescription>
-              {selectedDocument?.opd_nama} - {selectedDocument?.nama_dokumen}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedDocument && (
-            <div className="space-y-4 py-4">
-              <div className="rounded-2xl border border-border/70 bg-muted/40 p-4">
-                <p className="text-sm text-muted-foreground">Dokumen</p>
-                <p className="font-medium text-foreground">{selectedDocument.nama_dokumen}</p>
-                <div className="mt-2 grid gap-2 text-sm">
-                  <p>
-                    <span className="text-muted-foreground">OPD:</span>{" "}
-                    <span className="font-medium">{selectedDocument.opd_nama}</span>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Jenis:</span>{" "}
-                    <span className="font-medium">{selectedDocument.jenis_dokumen.toUpperCase()}</span>
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Tahun:</span>{" "}
-                    <span className="font-medium">{selectedDocument.tahun}</span>
-                  </p>
+        {/* ===== TAB NILAI ===== */}
+        <TabsContent value="nilai">
+          {/* Filter Nilai */}
+          <Card className="mb-6 border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
+            <CardContent className="pt-6">
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input placeholder="Cari OPD..." value={nilaiSearch} onChange={(e) => setNilaiSearch(e.target.value)}
+                    className="h-11 rounded-xl border-border/70 bg-background/80 pl-10" />
                 </div>
+                <Select value={nilaiTahunFilter} onValueChange={setNilaiTahunFilter}>
+                  <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-40">
+                    <SelectValue placeholder="Filter Tahun" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Tahun</SelectItem>
+                    {availableTahun.map((t) => <SelectItem key={t} value={String(t)}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" className="h-11 rounded-xl border-border/70" onClick={() => { setNilaiSearch(""); setNilaiTahunFilter("all"); }}>Reset</Button>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-2">
-                <Label htmlFor="nilai">Nilai Review (0-100) *</Label>
-                <Input
-                  id="nilai"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={reviewForm.nilaiReview}
-                  onChange={(e) =>
-                    setReviewForm({ ...reviewForm, nilaiReview: parseInt(e.target.value) || 0 })
-                  }
-                />
+          <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
+            <CardHeader className="border-b border-border/70">
+              <CardTitle className="text-lg">Nilai SAKIP per OPD ({filteredNilai.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>OPD</TableHead>
+                      <TableHead className="text-center">Tahun</TableHead>
+                      <TableHead className="text-center">Nilai Total</TableHead>
+                      <TableHead className="text-center">Predikat</TableHead>
+                      <TableHead>Diperbarui</TableHead>
+                      <TableHead className="text-right">Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredNilai.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                          Belum ada nilai SAKIP. Klik &quot;Tambah Nilai SAKIP&quot; untuk menambahkan.
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredNilai.map((n) => (
+                      <TableRow key={n.id}>
+                        <TableCell className="font-medium text-foreground">{n.opd_nama}</TableCell>
+                        <TableCell className="text-center">{n.tahun}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-lg font-bold text-foreground">{n.nilai_total.toFixed(2)}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {n.predikat ? (
+                            <Badge className={`rounded-full border px-3 py-1 ${predikatColor(n.predikat)}`}>
+                              <Star className="mr-1 h-3 w-3" />
+                              {n.predikat}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{new Date(n.updated_at).toLocaleDateString("id-ID")}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" title="Edit nilai" onClick={() => openEditNilai(n)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
+      {/* ===== Dialog Upload Dokumen ===== */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Upload Dokumen SAKIP</DialogTitle>
+            <DialogDescription>Upload dokumen SAKIP atau link eksternal ke file SAKIP</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>OPD *</Label>
+              <Select value={uploadForm.opdId} onValueChange={(v) => setUploadForm((f) => ({ ...f, opdId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Pilih OPD" /></SelectTrigger>
+                <SelectContent>{opdList.map((opd) => <SelectItem key={opd.id} value={opd.id}>{opd.nama}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nama Dokumen *</Label>
+              <Input placeholder="Contoh: Renstra 2024-2028" value={uploadForm.namaDokumen}
+                onChange={(e) => setUploadForm((f) => ({ ...f, namaDokumen: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="catatan">Catatan Review</Label>
-                <Textarea
-                  id="catatan"
-                  placeholder="Masukkan catatan atau feedback..."
-                  value={reviewForm.catatan}
-                  onChange={(e) => setReviewForm({ ...reviewForm, catatan: e.target.value })}
-                  rows={4}
-                />
+                <Label>Jenis Dokumen *</Label>
+                <Select value={uploadForm.jenisDokumen} onValueChange={(v) => setUploadForm((f) => ({ ...f, jenisDokumen: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {["renstra","renja","lakip","iku","tapkin","lainnya"].map((j) => <SelectItem key={j} value={j}>{j.toUpperCase()}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tahun *</Label>
+                <Input type="number" value={uploadForm.tahun} onChange={(e) => setUploadForm((f) => ({ ...f, tahun: parseInt(e.target.value) }))} />
               </div>
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>Link Dokumen (opsional)</Label>
+              <Input placeholder="https://..." value={uploadForm.linkDokumen}
+                onChange={(e) => setUploadForm((f) => ({ ...f, linkDokumen: e.target.value }))} />
+              <p className="text-xs text-muted-foreground">Jika dokumen sudah tersimpan di website lain</p>
+            </div>
+          </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setReviewDialogOpen(false);
-                setSelectedDocument(null);
-                setReviewForm({ nilaiReview: 0, catatan: "" });
-              }}
-            >
-              Batal
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={uploadLoading}>Batal</Button>
+            <Button onClick={handleUploadSubmit} disabled={uploadLoading}>
+              {uploadLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Upload
             </Button>
-            <Button onClick={handleReviewSubmit}>Simpan Review</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* ===== Dialog Nilai SAKIP ===== */}
+      <Dialog open={nilaiDialogOpen} onOpenChange={setNilaiDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedNilai ? "Edit Nilai SAKIP" : "Tambah Nilai SAKIP"}</DialogTitle>
+            <DialogDescription>Catat hasil evaluasi SAKIP untuk satu OPD dalam satu tahun.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>OPD *</Label>
+              <Select value={nilaiForm.opdId} onValueChange={(v) => setNilaiForm((f) => ({ ...f, opdId: v }))} disabled={!!selectedNilai}>
+                <SelectTrigger><SelectValue placeholder="Pilih OPD" /></SelectTrigger>
+                <SelectContent>{opdList.map((opd) => <SelectItem key={opd.id} value={opd.id}>{opd.nama}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Tahun *</Label>
+                <Input type="number" value={nilaiForm.tahun} disabled={!!selectedNilai}
+                  onChange={(e) => setNilaiForm((f) => ({ ...f, tahun: parseInt(e.target.value) }))} />
+              </div>
+              <div className="space-y-2">
+                <Label>Predikat *</Label>
+                <Select value={nilaiForm.predikat} onValueChange={(v) => setNilaiForm((f) => ({ ...f, predikat: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{PREDIKAT_OPTIONS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Nilai Total (0–100) *</Label>
+              <Input type="number" min={0} max={100} step={0.01} value={nilaiForm.nilaiTotal}
+                onChange={(e) => setNilaiForm((f) => ({ ...f, nilaiTotal: parseFloat(e.target.value) || 0 }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Catatan (opsional)</Label>
+              <Textarea placeholder="Catatan evaluasi..." value={nilaiForm.catatan}
+                onChange={(e) => setNilaiForm((f) => ({ ...f, catatan: e.target.value }))} rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNilaiDialogOpen(false)} disabled={nilaiLoading}>Batal</Button>
+            <Button onClick={handleSaveNilai} disabled={nilaiLoading}>
+              {nilaiLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Simpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminPageShell>
   );
 }

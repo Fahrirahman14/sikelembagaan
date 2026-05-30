@@ -121,7 +121,7 @@ export default function DokumenAnjabPage() {
 
   const handleApprove = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    await api.dokumenAnjab.approve(id, { penyetuju: "Admin" });
+    await api.dokumenAnjab.approve(id, "Admin");
     fetchData();
     if (selectedDokumen?.id === id) setDetailOpen(false);
   };

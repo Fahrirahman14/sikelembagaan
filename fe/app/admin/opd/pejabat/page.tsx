@@ -1,16 +1,16 @@
 "use client";
 
-import { AdminPageHeader } from "@/components/admin-page-header";
 import { AdminPageShell } from "@/components/admin-page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,365 +29,532 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { api, type OPD, type Pejabat } from "@/lib/api";
+import { JabatanCombobox } from "@/components/jabatan-combobox";
+import { api, type Jabatan, type OPD, type Pejabat } from "@/lib/api";
 import {
-    Building2,
-    Calendar,
-    Download,
     Edit,
     Eye,
     Filter,
-    GraduationCap,
+    Loader2,
     Plus,
     Search,
     Trash2,
     UserCircle,
     Users,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
-function EselonBadge({ eselon }: { eselon: string }) {
-  const colors: Record<string, string> = {
-    "II.a": "bg-primary text-primary-foreground",
-    "II.b": "bg-primary/80 text-primary-foreground",
-    "III.a": "bg-accent text-accent-foreground",
-    "III.b": "bg-accent/80 text-accent-foreground",
-    "IV.a": "bg-muted text-muted-foreground",
-    "IV.b": "bg-muted text-muted-foreground",
-  };
+const ESELON_OPTIONS = ["II.a", "II.b", "III.a", "III.b", "IV.a", "IV.b", "Non-eselon"];
+
+function JenisBadge({ eselon }: { eselon: string }) {
+  if (!eselon || eselon === "Non-eselon") {
+    return (
+      <Badge variant="outline" className="border-violet-200 bg-violet-50 text-violet-700">
+        Fungsional
+      </Badge>
+    );
+  }
   return (
-    <Badge className={colors[eselon] || "bg-muted text-muted-foreground"}>
-      Eselon {eselon}
+    <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary">
+      Struktural · {eselon}
     </Badge>
   );
 }
 
-export default function DataPejabatPage() {
+interface PegawaiForm {
+  opd_id: string;
+  nip: string;
+  nama: string;
+  jabatan: string;
+  eselon: string;
+  pangkat: string;
+  golongan: string;
+  tmt_jabatan: string;
+  pendidikan: string;
+}
+
+const emptyForm: PegawaiForm = {
+  opd_id: "none", nip: "", nama: "", jabatan: "", eselon: "Non-eselon",
+  pangkat: "", golongan: "", tmt_jabatan: "", pendidikan: "",
+};
+
+export default function DataPegawaiPage() {
   const [items, setItems] = useState<Pejabat[]>([]);
   const [opdList, setOpdList] = useState<OPD[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
-  const [selectedPejabat, setSelectedPejabat] = useState<Pejabat | null>(null);
+  const [jenisFilter, setJenisFilter] = useState("all");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [editingPegawai, setEditingPegawai] = useState<Pejabat | null>(null);
+  const [selectedPegawai, setSelectedPegawai] = useState<Pejabat | null>(null);
+  const [deletingPegawai, setDeletingPegawai] = useState<Pejabat | null>(null);
+  const [form, setForm] = useState<PegawaiForm>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
+
+  // Load jabatan ketika OPD berubah di form dialog
+  useEffect(() => {
+    if (!dialogOpen) return;
+    if (!form.opd_id || form.opd_id === "none") { setJabatanList([]); return; }
+    api.jabatan.list({ opd_id: form.opd_id }).then(setJabatanList).catch(() => {});
+  }, [form.opd_id, dialogOpen]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [pejabatData, opdData] = await Promise.all([
-        api.pejabat.list({
-          opd_id: opdFilter !== "all" ? opdFilter : undefined,
-          search: search || undefined,
-        }),
+      const [pegawaiData, opdData] = await Promise.all([
+        api.pejabat.list({ opd_id: opdFilter !== "all" ? opdFilter : undefined }),
         api.opd.list(),
       ]);
-      setItems(pejabatData);
+      setItems(pegawaiData);
       setOpdList(opdData);
     } catch {
-      // keep previous data
+      toast.error("Gagal memuat data pegawai");
     } finally {
       setLoading(false);
     }
-  }, [search, opdFilter]);
+  }, [opdFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Hapus pejabat ini?")) return;
-    await api.pejabat.delete(id);
-    fetchData();
-  };
+  const filteredData = useMemo(() => {
+    return items.filter((p) => {
+      const matchSearch = !search ||
+        p.nama.toLowerCase().includes(search.toLowerCase()) ||
+        p.nip.includes(search) ||
+        p.jabatan.toLowerCase().includes(search.toLowerCase());
+      const matchJenis = jenisFilter === "all" ||
+        (jenisFilter === "struktural" && p.eselon && p.eselon !== "Non-eselon") ||
+        (jenisFilter === "fungsional" && (!p.eselon || p.eselon === "Non-eselon"));
+      return matchSearch && matchJenis;
+    });
+  }, [items, search, jenisFilter]);
 
-  const filteredData = items;
-
-  const stats = {
+  const stats = useMemo(() => ({
     total: items.length,
-    eselon2: items.filter((p) => p.eselon.startsWith("II")).length,
-    eselon3: items.filter((p) => p.eselon.startsWith("III")).length,
-    eselon4: items.filter((p) => p.eselon.startsWith("IV")).length,
-  };
-  const activeFilters = [
-    search ? `Pencarian: ${search}` : null,
-    opdFilter !== "all"
-      ? `OPD: ${opdList.find((opd) => opd.id === opdFilter)?.nama ?? opdFilter}`
-      : null,
-  ].filter((value): value is string => Boolean(value));
+    struktural: items.filter((p) => p.eselon && p.eselon !== "Non-eselon").length,
+    fungsional: items.filter((p) => !p.eselon || p.eselon === "Non-eselon").length,
+    eselon2: items.filter((p) => p.eselon?.startsWith("II")).length,
+  }), [items]);
+
+  function openCreate() {
+    setEditingPegawai(null);
+    setForm(emptyForm);
+    setDialogOpen(true);
+  }
+
+  function openEdit(p: Pejabat) {
+    setEditingPegawai(p);
+    setForm({
+      opd_id: p.opd_id ?? "none",
+      nip: p.nip,
+      nama: p.nama,
+      jabatan: p.jabatan ?? "",
+      eselon: p.eselon || "Non-eselon",
+      pangkat: p.pangkat ?? "",
+      golongan: p.golongan ?? "",
+      tmt_jabatan: p.tmt_jabatan ? String(p.tmt_jabatan).substring(0, 10) : "",
+      pendidikan: p.pendidikan ?? "",
+    });
+    setDialogOpen(true);
+  }
+
+  async function handleSubmit() {
+    if (!form.nip || !form.nama) {
+      toast.error("NIP dan nama wajib diisi");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        opd_id: form.opd_id !== "none" ? form.opd_id : undefined,
+        nip: form.nip,
+        nama: form.nama,
+        jabatan: form.jabatan,
+        eselon: form.eselon !== "Non-eselon" ? form.eselon : "",
+        pangkat: form.pangkat,
+        golongan: form.golongan,
+        tmt_jabatan: form.tmt_jabatan || undefined,
+        pendidikan: form.pendidikan,
+      };
+      if (editingPegawai) {
+        const updated = await api.pejabat.update(editingPegawai.id, payload);
+        setItems((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+        toast.success("Data pegawai berhasil diperbarui");
+      } else {
+        const created = await api.pejabat.create(payload);
+        setItems((prev) => [...prev, created]);
+        toast.success("Pegawai berhasil ditambahkan");
+      }
+      setDialogOpen(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
+      toast.error(`Gagal menyimpan: ${msg}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deletingPegawai) return;
+    setSaving(true);
+    try {
+      await api.pejabat.delete(deletingPegawai.id);
+      setItems((prev) => prev.filter((p) => p.id !== deletingPegawai.id));
+      toast.success("Pegawai berhasil dihapus");
+      setDeleteOpen(false);
+    } catch {
+      toast.error("Gagal menghapus pegawai");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function initials(name: string) {
+    return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+  }
 
   return (
     <AdminPageShell>
-      <AdminPageHeader
-        icon={Users}
-        eyebrow="Master pejabat daerah"
-        title="Kelola data pejabat struktural dengan tampilan yang lebih rapi dan mudah dipantau."
-        description="Halaman data pejabat sekarang mengikuti bahasa visual admin baru, dengan ringkasan eselon, filter yang lebih jelas, dan area tabel yang lebih nyaman dibaca."
-        actions={
-          <>
-            <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-            <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
-              <Plus className="h-4 w-4" />
-              Tambah Pejabat
-            </Button>
-          </>
-        }
-        aside={
-          <>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Pejabat aktif
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">{stats.total}</p>
-            </div>
-            <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
-              <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                Eselon II dan III
-              </p>
-              <p className="mt-3 text-3xl font-semibold text-foreground">
-                {stats.eselon2 + stats.eselon3}
-              </p>
-            </div>
-          </>
-        }
-      />
+      {/* Header */}
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Master data kepegawaian
+          </p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">Data Pegawai</h1>
+        </div>
+        <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          Tambah Pegawai
+        </Button>
+      </div>
 
-          {/* Stats */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-primary/10 p-3">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Pejabat</p>
-                    <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-                  </div>
+      {/* Stats */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Total Pegawai", value: stats.total, icon: Users, color: "bg-primary/10 text-primary" },
+          { label: "Eselon II", value: stats.eselon2, icon: UserCircle, color: "bg-purple-100 text-purple-600" },
+          { label: "Struktural", value: stats.struktural, icon: UserCircle, color: "bg-blue-100 text-blue-600" },
+          { label: "Fungsional / Pelaksana", value: stats.fungsional, icon: UserCircle, color: "bg-violet-100 text-violet-600" },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <Card key={label} className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4">
+                <div className={`rounded-lg p-3 ${color.split(" ")[0]}`}>
+                  <Icon className={`h-5 w-5 ${color.split(" ")[1]}`} />
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-primary/10 p-3">
-                    <UserCircle className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Eselon II</p>
-                    <p className="text-2xl font-bold text-foreground">{stats.eselon2}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-accent/30 p-3">
-                    <UserCircle className="h-6 w-6 text-accent-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Eselon III</p>
-                    <p className="text-2xl font-bold text-foreground">{stats.eselon3}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-lg bg-muted p-3">
-                    <UserCircle className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Eselon IV</p>
-                    <p className="text-2xl font-bold text-foreground">{stats.eselon4}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Table */}
-          <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
-            <CardHeader className="border-b border-border/70">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <CardTitle className="text-lg">Daftar Pejabat</CardTitle>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {activeFilters.length > 0 ? (
-                      activeFilters.map((filter) => (
-                        <Badge
-                          key={filter}
-                          className="rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-primary"
-                        >
-                          {filter}
-                        </Badge>
-                      ))
-                    ) : (
-                      <Badge className="rounded-full border border-border/80 bg-background/80 px-3 py-1 text-muted-foreground">
-                        Menampilkan seluruh pejabat terdata
-                      </Badge>
-                    )}
-                  </div>
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="text-2xl font-bold text-foreground">{value}</p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari nama/NIP..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="h-11 rounded-xl border-border/70 bg-background/80 pl-9 sm:w-64"
-                    />
-                  </div>
-                  <Select value={opdFilter} onValueChange={setOpdFilter}>
-                    <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-56">
-                      <Filter className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Filter OPD" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua OPD</SelectItem>
-                      {opdList.map((opd) => (
-                        <SelectItem key={opd.id} value={opd.id}>
-                          {opd.nama}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border/70 hover:bg-transparent">
-                      <TableHead>NIP</TableHead>
-                      <TableHead>Nama</TableHead>
-                      <TableHead>Jabatan</TableHead>
-                      <TableHead>OPD</TableHead>
-                      <TableHead>Eselon</TableHead>
-                      <TableHead>Golongan</TableHead>
-                      <TableHead className="text-right">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Memuat data...</TableCell>
-                      </TableRow>
-                    ) : filteredData.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">Tidak ada data pejabat</TableCell>
-                      </TableRow>
-                    ) : filteredData.map((pejabat) => (
-                      <TableRow key={pejabat.id} className="border-border/60 hover:bg-background/80">
-                        <TableCell className="font-mono text-sm">{pejabat.nip}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                              <span className="text-sm font-semibold">
-                                {pejabat.nama.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium text-foreground">{pejabat.nama}</p>
-                              <p className="text-xs text-muted-foreground">{pejabat.pangkat}</p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">{pejabat.jabatan}</TableCell>
-                        <TableCell className="text-muted-foreground">{pejabat.opd_nama}</TableCell>
-                        <TableCell>
-                          <EselonBadge eselon={pejabat.eselon} />
-                        </TableCell>
-                        <TableCell className="font-medium">{pejabat.golongan}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setSelectedPejabat(pejabat)}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                  <DialogTitle>Detail Pejabat</DialogTitle>
-                                </DialogHeader>
-                                {selectedPejabat && (
-                                  <div className="grid gap-6 py-4">
-                                    <div className="flex items-center gap-4">
-                                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary">
-                                        <span className="text-2xl font-bold">
-                                          {selectedPejabat.nama.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                                        </span>
-                                      </div>
-                                      <div>
-                                        <h3 className="text-xl font-bold text-foreground">{selectedPejabat.nama}</h3>
-                                        <p className="text-muted-foreground">{selectedPejabat.jabatan}</p>
-                                        <EselonBadge eselon={selectedPejabat.eselon} />
-                                      </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                      <div className="flex items-start gap-3">
-                                        <UserCircle className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                          <Label className="text-muted-foreground">NIP</Label>
-                                          <p className="font-medium">{selectedPejabat.nip}</p>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start gap-3">
-                                        <Building2 className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                          <Label className="text-muted-foreground">OPD</Label>
-                                          <p className="font-medium">{selectedPejabat.opd_nama}</p>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start gap-3">
-                                        <Users className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                          <Label className="text-muted-foreground">Pangkat/Golongan</Label>
-                                          <p className="font-medium">{selectedPejabat.pangkat} ({selectedPejabat.golongan})</p>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-start gap-3">
-                                        <Calendar className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                          <Label className="text-muted-foreground">TMT Jabatan</Label>
-                                          <p className="font-medium">{selectedPejabat.tmt_jabatan ? new Date(selectedPejabat.tmt_jabatan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-"}</p>
-                                        </div>
-                                      </div>
-                                      <div className="col-span-2 flex items-start gap-3">
-                                        <GraduationCap className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                                        <div>
-                                          <Label className="text-muted-foreground">Pendidikan</Label>
-                                          <p className="font-medium">{selectedPejabat.pendidikan}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </DialogContent>
-                            </Dialog>
-                            <Button variant="ghost" size="icon">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(pejabat.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
               </div>
             </CardContent>
           </Card>
+        ))}
+      </div>
+
+      {/* Tabel */}
+      <Card className="border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur">
+        <CardHeader className="border-b border-border/70 px-6 py-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-semibold">
+              Daftar Pegawai
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({filteredData.length} dari {items.length})
+              </span>
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input placeholder="Cari nama, NIP, jabatan..."
+                  value={search} onChange={(e) => setSearch(e.target.value)}
+                  className="h-9 rounded-xl border-border/70 bg-background/80 pl-9 sm:w-52" />
+              </div>
+              <Select value={opdFilter} onValueChange={setOpdFilter}>
+                <SelectTrigger className="h-9 rounded-xl border-border/70 bg-background/80 sm:w-44">
+                  <Filter className="mr-2 h-3.5 w-3.5" />
+                  <SelectValue placeholder="Semua OPD" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua OPD</SelectItem>
+                  {opdList.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>{o.nama}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={jenisFilter} onValueChange={setJenisFilter}>
+                <SelectTrigger className="h-9 rounded-xl border-border/70 bg-background/80 sm:w-40">
+                  <SelectValue placeholder="Semua Jenis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Jenis</SelectItem>
+                  <SelectItem value="struktural">Struktural</SelectItem>
+                  <SelectItem value="fungsional">Fungsional</SelectItem>
+                </SelectContent>
+              </Select>
+              {(search || opdFilter !== "all" || jenisFilter !== "all") && (
+                <Button variant="outline" size="sm" className="h-9 rounded-xl"
+                  onClick={() => { setSearch(""); setOpdFilter("all"); setJenisFilter("all"); }}>
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/70 hover:bg-transparent">
+                  <TableHead className="px-6 py-3 text-xs font-semibold uppercase tracking-wide">NIP</TableHead>
+                  <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Nama</TableHead>
+                  <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Jabatan</TableHead>
+                  <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">OPD</TableHead>
+                  <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Jenis / Eselon</TableHead>
+                  <TableHead className="px-4 py-3 text-xs font-semibold uppercase tracking-wide">Golongan</TableHead>
+                  <TableHead className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin opacity-40" />
+                      Memuat data...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <Users className="mx-auto mb-3 h-8 w-8 opacity-30" />
+                      <p>Tidak ada data pegawai</p>
+                      {/* {items.length === 0 && (
+                        <Button variant="outline" size="sm" className="mt-3" onClick={openCreate}>
+                          <Plus className="mr-2 h-3.5 w-3.5" /> Tambah pegawai pertama
+                        </Button>
+                      )} */}
+                    </TableCell>
+                  </TableRow>
+                ) : filteredData.map((pegawai) => (
+                  <TableRow key={pegawai.id} className="border-border/60 hover:bg-background/60">
+                    <TableCell className="px-6 py-4 font-mono text-sm">{pegawai.nip}</TableCell>
+                    <TableCell className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                          {initials(pegawai.nama)}
+                        </div>
+                        <div>
+                          <p className="font-medium">{pegawai.nama}</p>
+                          {pegawai.pangkat && <p className="text-xs text-muted-foreground">{pegawai.pangkat}</p>}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-4 py-4 font-medium">{pegawai.jabatan || "—"}</TableCell>
+                    <TableCell className="px-4 py-4 text-sm text-muted-foreground">{pegawai.opd_nama || "—"}</TableCell>
+                    <TableCell className="px-4 py-4">
+                      <JenisBadge eselon={pegawai.eselon} />
+                    </TableCell>
+                    <TableCell className="px-4 py-4 font-medium">{pegawai.golongan || "—"}</TableCell>
+                    <TableCell className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8"
+                          onClick={() => { setSelectedPegawai(pegawai); setDetailOpen(true); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8"
+                          onClick={() => openEdit(pegawai)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => { setDeletingPegawai(pegawai); setDeleteOpen(true); }}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tambah / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingPegawai ? "Edit Pegawai" : "Tambah Pegawai"}</DialogTitle>
+            <DialogDescription>
+              {editingPegawai
+                ? "Perbarui data pegawai."
+                : "Tambah data pegawai baru (struktural, fungsional, atau pelaksana)."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="space-y-1.5">
+              <Label>OPD</Label>
+              <Select value={form.opd_id} onValueChange={(v) => setForm((f) => ({ ...f, opd_id: v }))}>
+                <SelectTrigger className="rounded-xl"><SelectValue placeholder="Pilih OPD" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Tanpa OPD</SelectItem>
+                  {opdList.map((o) => <SelectItem key={o.id} value={o.id}>{o.nama}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>NIP *</Label>
+                <Input placeholder="NIP pegawai" value={form.nip}
+                  onChange={(e) => setForm((f) => ({ ...f, nip: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Nama Lengkap *</Label>
+                <Input placeholder="Nama lengkap" value={form.nama}
+                  onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nama Jabatan</Label>
+              <JabatanCombobox
+                items={jabatanList}
+                value={form.jabatan}
+                placeholder={
+                  form.opd_id === "none"
+                    ? "Pilih OPD dulu..."
+                    : jabatanList.length === 0
+                    ? "Belum ada jabatan di OPD ini..."
+                    : "Pilih dari master jabatan..."
+                }
+                onSelect={(j) =>
+                  setForm((f) => ({
+                    ...f,
+                    jabatan: j?.nama ?? f.jabatan,
+                    eselon: j?.eselon ? j.eselon : f.eselon,
+                  }))
+                }
+              />
+              {form.opd_id !== "none" && jabatanList.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Tambahkan jabatan di{" "}
+                  <span className="font-medium">Anjab → Input Data Jabatan</span> terlebih dahulu.
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Eselon</Label>
+                <Select value={form.eselon} onValueChange={(v) => setForm((f) => ({ ...f, eselon: v }))}>
+                  <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ESELON_OPTIONS.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>TMT Jabatan</Label>
+                <Input type="date" value={form.tmt_jabatan}
+                  onChange={(e) => setForm((f) => ({ ...f, tmt_jabatan: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Pangkat</Label>
+                <Input placeholder="Pangkat" value={form.pangkat}
+                  onChange={(e) => setForm((f) => ({ ...f, pangkat: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Golongan</Label>
+                <Input placeholder="mis. III/c" value={form.golongan}
+                  onChange={(e) => setForm((f) => ({ ...f, golongan: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Pendidikan Terakhir</Label>
+              <Input placeholder="mis. S1 Administrasi Negara" value={form.pendidikan}
+                onChange={(e) => setForm((f) => ({ ...f, pendidikan: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>Batal</Button>
+            <Button onClick={handleSubmit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingPegawai ? "Simpan Perubahan" : "Tambah Pegawai"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Detail Pegawai</DialogTitle></DialogHeader>
+          {selectedPegawai && (
+            <div className="py-2">
+              <div className="mb-4 flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
+                  {initials(selectedPegawai.nama)}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">{selectedPegawai.nama}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedPegawai.jabatan || "—"}</p>
+                  <JenisBadge eselon={selectedPegawai.eselon} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                {[
+                  { label: "NIP", value: selectedPegawai.nip },
+                  { label: "OPD", value: selectedPegawai.opd_nama || "—" },
+                  { label: "Pangkat", value: selectedPegawai.pangkat || "—" },
+                  { label: "Golongan", value: selectedPegawai.golongan || "—" },
+                  { label: "Pendidikan", value: selectedPegawai.pendidikan || "—" },
+                  {
+                    label: "TMT Jabatan",
+                    value: selectedPegawai.tmt_jabatan
+                      ? new Date(selectedPegawai.tmt_jabatan).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })
+                      : "—",
+                  },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p className="text-xs text-muted-foreground">{label}</p>
+                    <p className="mt-0.5 font-medium">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailOpen(false)}>Tutup</Button>
+            <Button onClick={() => { setDetailOpen(false); if (selectedPegawai) openEdit(selectedPegawai); }}>
+              <Edit className="mr-2 h-4 w-4" /> Edit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hapus Dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hapus Pegawai</DialogTitle>
+            <DialogDescription>
+              Yakin ingin menghapus <strong>{deletingPegawai?.nama}</strong>? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={saving}>Batal</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Hapus
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminPageShell>
   );
 }

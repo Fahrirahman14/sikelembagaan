@@ -17,6 +17,7 @@ import {
   Users,
   X
 } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -120,6 +121,11 @@ function NavItem({ icon: Icon, label, href, children, pathname, onItemClick }: N
 export function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+
+  const initials = user?.name
+    ? user.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
+    : "AD";
 
   const closeMobile = () => setMobileOpen(false);
 
@@ -195,7 +201,7 @@ export function AppSidebar() {
             children={[
               { label: "Daftar OPD", href: "/admin/opd/daftar" },
               { label: "Struktur Organisasi", href: "/admin/opd/struktur" },
-              { label: "Data Pejabat", href: "/admin/opd/pejabat" },
+              { label: "Data Pegawai", href: "/admin/opd/pejabat" },
             ]}
           />
 
@@ -241,23 +247,29 @@ export function AppSidebar() {
             onItemClick={closeMobile}
             children={[
               { label: "Pengaturan User", href: "/admin/pengaturan/user" },
-              { label: "Role Admin", href: "/admin/pengaturan/role-admin" },
+              // { label: "Role Admin", href: "/admin/pengaturan/role-admin" },
             ]}
           />
-          <NavItem icon={HelpCircle} label="Bantuan" href="#bantuan" pathname={pathname} onItemClick={closeMobile} />
+          {/* <NavItem icon={HelpCircle} label="Bantuan" href="#bantuan" pathname={pathname} onItemClick={closeMobile} /> */}
         </nav>
 
         <div className="border-t border-sidebar-border/70 p-4">
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-4"> 
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sidebar-accent text-sidebar-accent-foreground">
-                <span className="text-sm font-semibold">AD</span>
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-sidebar-accent text-sidebar-accent-foreground">
+                <span className="text-sm font-semibold">{initials}</span>
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">Admin Daerah</p>
-                <p className="text-xs text-sidebar-foreground/60">admin@pemkab.go.id</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-white">{user?.name ?? "—"}</p>
+                <p className="truncate text-xs text-sidebar-foreground/60">{user?.email ?? "—"}</p>
               </div>
-              <Button variant="ghost" size="icon" className="text-sidebar-foreground/60 hover:bg-white/10 hover:text-white">
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Keluar"
+                className="shrink-0 text-sidebar-foreground/60 hover:bg-white/10 hover:text-white"
+                onClick={logout}
+              >
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>

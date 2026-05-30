@@ -405,12 +405,12 @@ export default function LaporanPage() {
                                     ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                                     : doc.status === "review"
                                     ? "bg-accent/30 text-accent-foreground border-accent/40"
-                                    : doc.status === "revisi"
+                                    : (doc.status as string) === "revisi"
                                     ? "bg-orange-100 text-orange-700 border-orange-200"
                                     : "bg-muted text-muted-foreground"
                                 }
                               >
-                                {doc.status === "disetujui" ? "Disetujui" : doc.status === "review" ? "Review" : doc.status === "revisi" ? "Revisi" : "Draft"}
+                                {doc.status === "disetujui" ? "Disetujui" : doc.status === "review" ? "Review" : (doc.status as string) === "revisi" ? "Revisi" : "Draft"}
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
