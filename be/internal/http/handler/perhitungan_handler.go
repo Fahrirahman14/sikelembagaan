@@ -21,11 +21,12 @@ type calculateRequest struct {
 
 func (h PerhitunganHandler) List(c *echo.Context) error {
 	jabatanID := c.QueryParam("jabatan_id")
-	items, err := store.ListPerhitunganABK(c.Request().Context(), h.DB, jabatanID)
+	limit, offset := parsePagination(c)
+	result, err := store.ListPerhitunganABK(c.Request().Context(), h.DB, jabatanID, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data perhitungan")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h PerhitunganHandler) Get(c *echo.Context) error {

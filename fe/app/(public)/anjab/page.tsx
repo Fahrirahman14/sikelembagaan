@@ -145,9 +145,9 @@ export default function PublicAnjabPage() {
   const [perhitunganList, setPerhitunganList] = useState<PerhitunganABK[]>([]);
 
   useEffect(() => {
-    api.jabatan.list().then(setJabatanList);
-    api.opd.list().then(setOpdList);
-    api.perhitungan.list().then(setPerhitunganList);
+    api.jabatan.list({ limit: 0 }).then((r) => setJabatanList(r.data));
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data));
+    api.perhitungan.list({ limit: 0 }).then((r) => setPerhitunganList(r.data));
   }, []);
 
   const filteredJabatan = jabatanList.filter((jabatan) => {

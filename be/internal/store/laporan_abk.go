@@ -24,23 +24,37 @@ type LaporanABK struct {
 	DeletedAt             *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListLaporanABK(ctx context.Context, db *sql.DB, opdID string) ([]LaporanABK, error) {
-	query := `
+func ListLaporanABK(ctx context.Context, db *sql.DB, opdID string, limit, offset int) (PaginatedResult[LaporanABK], error) {
+	base := `
 		SELECT l.id, l.opd_id, COALESCE(o.nama,''), l.periode, l.tanggal_dibuat, l.status,
 			l.total_jabatan, l.total_kebutuhan_pegawai, l.total_pegawai_existing, l.efisiensi,
 			l.created_at, l.updated_at
 		FROM laporan_abk l LEFT JOIN opd o ON o.id = l.opd_id
 		WHERE l.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM laporan_abk l WHERE l.deleted_at IS NULL`
 	args := make([]any, 0)
 	if opdID != "" {
-		query += " AND l.opd_id = ?"
+		cond := " AND l.opd_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, opdID)
 	}
-	query += " ORDER BY l.tanggal_dibuat DESC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[LaporanABK]{}, err
+	}
+
+	base += " ORDER BY l.tanggal_dibuat DESC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[LaporanABK]{}, err
 	}
 	defer rows.Close()
 
@@ -50,11 +64,14 @@ func ListLaporanABK(ctx context.Context, db *sql.DB, opdID string) ([]LaporanABK
 		if err := rows.Scan(&l.ID, &l.OpdID, &l.OpdNama, &l.Periode, &l.TanggalDibuat, &l.Status,
 			&l.TotalJabatan, &l.TotalKebutuhanPegawai, &l.TotalPegawaiExisting, &l.Efisiensi,
 			&l.CreatedAt, &l.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[LaporanABK]{}, err
 		}
 		out = append(out, l)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[LaporanABK]{}, err
+	}
+	return PaginatedResult[LaporanABK]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetLaporanABKByID(ctx context.Context, db *sql.DB, id string) (LaporanABK, error) {

@@ -272,6 +272,13 @@ export interface RekapOPD {
   total_jabatan: number;
 }
 
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 // ---- Core request helper ----
 async function request<T>(
   path: string,
@@ -353,10 +360,13 @@ export const api = {
 
   // ---- OPD ----
   opd: {
-    list: (search?: string) =>
-      request<OPD[]>(
-        `/opd${search ? `?search=${encodeURIComponent(search)}` : ""}`,
-      ),
+    list: (params?: { search?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.search) q.set("search", params.search);
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<OPD>>(`/opd${q.toString() ? `?${q}` : ""}`);
+    },
     get: (id: string) => request<OPD>(`/opd/${id}`),
     create: (data: Partial<OPD>) =>
       request<OPD>("/opd", { method: "POST", body: JSON.stringify(data) }),
@@ -367,12 +377,14 @@ export const api = {
 
   // ---- Jabatan ----
   jabatan: {
-    list: (params?: { opd_id?: string; jenis?: string; search?: string }) => {
+    list: (params?: { opd_id?: string; jenis?: string; search?: string; limit?: number; offset?: number }) => {
       const q = new URLSearchParams();
       if (params?.opd_id) q.set("opd_id", params.opd_id);
       if (params?.jenis) q.set("jenis", params.jenis);
       if (params?.search) q.set("search", params.search);
-      return request<Jabatan[]>(`/jabatan${q.toString() ? `?${q}` : ""}`);
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<Jabatan>>(`/jabatan${q.toString() ? `?${q}` : ""}`);
     },
     get: (id: string) => request<Jabatan>(`/jabatan/${id}`),
     create: (data: Partial<Jabatan>) =>
@@ -391,11 +403,13 @@ export const api = {
 
   // ---- Pejabat ----
   pejabat: {
-    list: (params?: { opd_id?: string; search?: string }) => {
+    list: (params?: { opd_id?: string; search?: string; limit?: number; offset?: number }) => {
       const q = new URLSearchParams();
       if (params?.opd_id) q.set("opd_id", params.opd_id);
       if (params?.search) q.set("search", params.search);
-      return request<Pejabat[]>(`/pejabat${q.toString() ? `?${q}` : ""}`);
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<Pejabat>>(`/pejabat${q.toString() ? `?${q}` : ""}`);
     },
     get: (id: string) => request<Pejabat>(`/pejabat/${id}`),
     create: (data: Partial<Pejabat>) =>
@@ -436,12 +450,16 @@ export const api = {
       jabatan_id?: string;
       kategori?: string;
       search?: string;
+      limit?: number;
+      offset?: number;
     }) => {
       const q = new URLSearchParams();
       if (params?.jabatan_id) q.set("jabatan_id", params.jabatan_id);
       if (params?.kategori) q.set("kategori", params.kategori);
       if (params?.search) q.set("search", params.search);
-      return request<Aktivitas[]>(
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<Aktivitas>>(
         `/abk/aktivitas${q.toString() ? `?${q}` : ""}`,
       );
     },
@@ -462,10 +480,15 @@ export const api = {
 
   // ---- ABK Perhitungan ----
   perhitungan: {
-    list: (jabatanId?: string) =>
-      request<PerhitunganABK[]>(
-        `/abk/perhitungan${jabatanId ? `?jabatan_id=${jabatanId}` : ""}`,
-      ),
+    list: (params?: { jabatan_id?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.jabatan_id) q.set("jabatan_id", params.jabatan_id);
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<PerhitunganABK>>(
+        `/abk/perhitungan${q.toString() ? `?${q}` : ""}`,
+      );
+    },
     get: (id: string) => request<PerhitunganABK>(`/abk/perhitungan/${id}`),
     calculate: (
       jabatanId: string,
@@ -484,8 +507,15 @@ export const api = {
 
   // ---- ABK Laporan ----
   laporanAbk: {
-    list: (opdId?: string) =>
-      request<LaporanABK[]>(`/abk/laporan${opdId ? `?opd_id=${opdId}` : ""}`),
+    list: (params?: { opd_id?: string; limit?: number; offset?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.opd_id) q.set("opd_id", params.opd_id);
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<LaporanABK>>(
+        `/abk/laporan${q.toString() ? `?${q}` : ""}`,
+      );
+    },
     get: (id: string) => request<LaporanABK>(`/abk/laporan/${id}`),
     create: (data: Partial<LaporanABK>) =>
       request<LaporanABK>("/abk/laporan", {
@@ -501,12 +531,14 @@ export const api = {
 
   // ---- ANJAB Dokumen ----
   dokumenAnjab: {
-    list: (params?: { opd_id?: string; status?: string; search?: string }) => {
+    list: (params?: { opd_id?: string; status?: string; search?: string; limit?: number; offset?: number }) => {
       const q = new URLSearchParams();
       if (params?.opd_id) q.set("opd_id", params.opd_id);
       if (params?.status) q.set("status", params.status);
       if (params?.search) q.set("search", params.search);
-      return request<DokumenAnjab[]>(
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<DokumenAnjab>>(
         `/anjab/dokumen${q.toString() ? `?${q}` : ""}`,
       );
     },
@@ -556,11 +588,13 @@ export const api = {
 
   // ---- SAKIP Nilai ----
   nilaiSakip: {
-    list: (params?: { opd_id?: string; tahun?: number }) => {
+    list: (params?: { opd_id?: string; tahun?: number; limit?: number; offset?: number }) => {
       const q = new URLSearchParams();
       if (params?.opd_id) q.set("opd_id", params.opd_id);
       if (params?.tahun) q.set("tahun", String(params.tahun));
-      return request<NilaiSAKIP[]>(
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<NilaiSAKIP>>(
         `/sakip/nilai${q.toString() ? `?${q}` : ""}`,
       );
     },
@@ -573,11 +607,13 @@ export const api = {
 
   // ---- SAKIP Dokumen ----
   dokumenSakip: {
-    list: (params?: { opd_id?: string; tahun?: number }) => {
+    list: (params?: { opd_id?: string; tahun?: number; limit?: number; offset?: number }) => {
       const q = new URLSearchParams();
       if (params?.opd_id) q.set("opd_id", params.opd_id);
       if (params?.tahun) q.set("tahun", String(params.tahun));
-      return request<DokumenSAKIP[]>(
+      if (params?.limit !== undefined) q.set("limit", String(params.limit));
+      if (params?.offset !== undefined) q.set("offset", String(params.offset));
+      return request<PaginatedResult<DokumenSAKIP>>(
         `/sakip/dokumen${q.toString() ? `?${q}` : ""}`,
       );
     },

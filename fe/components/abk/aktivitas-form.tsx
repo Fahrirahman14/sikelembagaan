@@ -63,12 +63,12 @@ export function AktivitasForm({ onSubmit }: AktivitasFormProps) {
   });
 
   useEffect(() => {
-    api.opd.list().then(setOpdList).catch(() => {});
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!selectedOPD) { setJabatanList([]); return; }
-    api.jabatan.list({ opd_id: selectedOPD }).then(setJabatanList).catch(() => {});
+    api.jabatan.list({ opd_id: selectedOPD, limit: 0 }).then((r) => setJabatanList(r.data)).catch(() => {});
   }, [selectedOPD]);
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -40,8 +40,8 @@ export default function PublicDashboardPage() {
 
   useEffect(() => {
     api.dashboard.summary().then(setSummary);
-    api.opd.list().then(setOpdList);
-    api.laporanAbk.list().then(setLaporanList);
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data));
+    api.laporanAbk.list({ limit: 0 }).then((r) => setLaporanList(r.data));
   }, []);
 
   const totalOPD = summary?.total_opd ?? 0;

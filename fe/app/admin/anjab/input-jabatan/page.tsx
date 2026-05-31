@@ -166,15 +166,16 @@ export default function InputJabatanPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [jabatanData, opdData] = await Promise.all([
+      const [jabatanResult, opdResult] = await Promise.all([
         api.jabatan.list({
           opd_id: opdFilter !== "all" ? opdFilter : undefined,
           jenis: jenisFilter !== "all" ? jenisFilter : undefined,
+          limit: 0,
         }),
-        api.opd.list(),
+        api.opd.list({ limit: 0 }),
       ]);
-      setItems(jabatanData);
-      setOpdList(opdData);
+      setItems(jabatanResult.data);
+      setOpdList(opdResult.data);
     } catch {
       toast.error("Gagal memuat data jabatan");
     } finally {

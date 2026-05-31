@@ -35,26 +35,42 @@ type DokumenSAKIP struct {
 
 // === Nilai SAKIP ===
 
-func ListNilaiSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int) ([]NilaiSAKIP, error) {
-	query := `
+func ListNilaiSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun, limit, offset int) (PaginatedResult[NilaiSAKIP], error) {
+	base := `
 		SELECT n.id, n.opd_id, COALESCE(o.nama,''), n.tahun, n.nilai_total, COALESCE(n.predikat,''),
 			n.komponen_nilai, n.created_at, n.updated_at
 		FROM nilai_sakip n LEFT JOIN opd o ON o.id = n.opd_id
 		WHERE n.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM nilai_sakip n WHERE n.deleted_at IS NULL`
 	args := make([]any, 0)
 	if opdID != "" {
-		query += " AND n.opd_id = ?"
+		cond := " AND n.opd_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, opdID)
 	}
 	if tahun > 0 {
-		query += " AND n.tahun = ?"
+		cond := " AND n.tahun = ?"
+		base += cond
+		cnt += cond
 		args = append(args, tahun)
 	}
-	query += " ORDER BY n.tahun DESC, o.nama ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[NilaiSAKIP]{}, err
+	}
+
+	base += " ORDER BY n.tahun DESC, o.nama ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[NilaiSAKIP]{}, err
 	}
 	defer rows.Close()
 
@@ -64,14 +80,17 @@ func ListNilaiSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int) ([
 		var kn sql.NullString
 		if err := rows.Scan(&n.ID, &n.OpdID, &n.OpdNama, &n.Tahun, &n.NilaiTotal, &n.Predikat,
 			&kn, &n.CreatedAt, &n.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[NilaiSAKIP]{}, err
 		}
 		if kn.Valid {
 			n.KomponenNilai = json.RawMessage(kn.String)
 		}
 		out = append(out, n)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[NilaiSAKIP]{}, err
+	}
+	return PaginatedResult[NilaiSAKIP]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func UpsertNilaiSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int, nilaiTotal float64, predikat string, komponenNilai json.RawMessage) (NilaiSAKIP, error) {
@@ -126,26 +145,42 @@ func UpsertNilaiSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int, 
 
 // === Dokumen SAKIP ===
 
-func ListDokumenSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int) ([]DokumenSAKIP, error) {
-	query := `
+func ListDokumenSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun, limit, offset int) (PaginatedResult[DokumenSAKIP], error) {
+	base := `
 		SELECT d.id, d.opd_id, COALESCE(o.nama,''), d.tahun, d.jenis_dokumen, d.nama_dokumen,
 			COALESCE(d.file_path,''), COALESCE(d.uploaded_by,''), d.created_at, d.updated_at
 		FROM dokumen_sakip d LEFT JOIN opd o ON o.id = d.opd_id
 		WHERE d.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM dokumen_sakip d WHERE d.deleted_at IS NULL`
 	args := make([]any, 0)
 	if opdID != "" {
-		query += " AND d.opd_id = ?"
+		cond := " AND d.opd_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, opdID)
 	}
 	if tahun > 0 {
-		query += " AND d.tahun = ?"
+		cond := " AND d.tahun = ?"
+		base += cond
+		cnt += cond
 		args = append(args, tahun)
 	}
-	query += " ORDER BY d.tahun DESC, d.jenis_dokumen ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[DokumenSAKIP]{}, err
+	}
+
+	base += " ORDER BY d.tahun DESC, d.jenis_dokumen ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[DokumenSAKIP]{}, err
 	}
 	defer rows.Close()
 
@@ -154,11 +189,14 @@ func ListDokumenSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int) 
 		var d DokumenSAKIP
 		if err := rows.Scan(&d.ID, &d.OpdID, &d.OpdNama, &d.Tahun, &d.JenisDokumen, &d.NamaDokumen,
 			&d.FilePath, &d.UploadedBy, &d.CreatedAt, &d.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[DokumenSAKIP]{}, err
 		}
 		out = append(out, d)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[DokumenSAKIP]{}, err
+	}
+	return PaginatedResult[DokumenSAKIP]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func CreateDokumenSAKIP(ctx context.Context, db *sql.DB, opdID string, tahun int, jenisDokumen, namaDokumen, filePath, uploadedBy string) (DokumenSAKIP, error) {

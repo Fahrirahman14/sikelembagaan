@@ -120,8 +120,8 @@ export default function PublicSAKIPPage() {
   const [dokumenList, setDokumenList] = useState<DokumenSAKIP[]>([]);
 
   useEffect(() => {
-    api.nilaiSakip.list().then(setNilaiList);
-    api.dokumenSakip.list().then(setDokumenList);
+    api.nilaiSakip.list({ limit: 0 }).then((r) => setNilaiList(r.data));
+    api.dokumenSakip.list({ limit: 0 }).then((r) => setDokumenList(r.data));
   }, []);
 
   const totalOPD = nilaiList.length;

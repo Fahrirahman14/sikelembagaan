@@ -28,11 +28,12 @@ func (h AktivitasHandler) List(c *echo.Context) error {
 	jabatanID := c.QueryParam("jabatan_id")
 	kategori := c.QueryParam("kategori")
 	search := c.QueryParam("search")
-	items, err := store.ListAktivitas(c.Request().Context(), h.DB, jabatanID, kategori, search)
+	limit, offset := parsePagination(c)
+	result, err := store.ListAktivitas(c.Request().Context(), h.DB, jabatanID, kategori, search, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data aktivitas")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h AktivitasHandler) Get(c *echo.Context) error {

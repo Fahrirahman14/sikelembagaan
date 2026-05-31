@@ -28,11 +28,12 @@ type opdRequest struct {
 
 func (h OPDHandler) List(c *echo.Context) error {
 	search := c.QueryParam("search")
-	items, err := store.ListOPD(c.Request().Context(), h.DB, search)
+	limit, offset := parsePagination(c)
+	result, err := store.ListOPD(c.Request().Context(), h.DB, search, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data OPD")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h OPDHandler) Get(c *echo.Context) error {

@@ -20,6 +20,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type PerhitunganABK } from "@/lib/api";
 import {
     BarChart3,
@@ -36,18 +37,29 @@ import { useCallback, useEffect, useState } from "react";
 
 export function PerhitunganABK() {
   const [data, setData] = useState<PerhitunganABK[]>([]);
+  const [statsData, setStatsData] = useState<PerhitunganABK[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const result = await api.perhitungan.list({ limit: 0 });
+      setStatsData(result.data);
+    } catch { /* keep empty */ }
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
-      const result = await api.perhitungan.list();
-      setData(result);
-    } catch {
-      // keep empty
-    }
-  }, []);
+      const result = await api.perhitungan.list({ limit, offset });
+      setData(result.data);
+      setTotal(result.total);
+    } catch { /* keep empty */ }
+  }, [limit, offset]);
 
+  useEffect(() => { fetchStats(); }, [fetchStats]);
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filteredData = data.filter((item) => {
@@ -57,20 +69,13 @@ export function PerhitunganABK() {
     return matchSearch && matchStatus;
   });
 
-  // Ringkasan statistik
-  const totalKebutuhan = filteredData.reduce(
-    (sum, item) => sum + item.kebutuhan_pegawai,
-    0
-  );
-  const totalExisting = filteredData.reduce(
-    (sum, item) => sum + item.pegawai_existing,
-    0
-  );
-  const totalSelisih = filteredData.reduce((sum, item) => sum + item.selisih, 0);
+  // Ringkasan statistik dari full data
+  const totalKebutuhan = statsData.reduce((sum, item) => sum + item.kebutuhan_pegawai, 0);
+  const totalExisting = statsData.reduce((sum, item) => sum + item.pegawai_existing, 0);
+  const totalSelisih = statsData.reduce((sum, item) => sum + item.selisih, 0);
   const avgBebanKerja =
-    filteredData.length > 0
-      ? filteredData.reduce((sum, item) => sum + item.beban_kerja, 0) /
-        filteredData.length
+    statsData.length > 0
+      ? statsData.reduce((sum, item) => sum + item.beban_kerja, 0) / statsData.length
       : 0;
 
   const getStatusBadge = (keterangan: string) => {
@@ -205,7 +210,7 @@ export function PerhitunganABK() {
               <SelectItem value="Sesuai">Sesuai</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-2" onClick={fetchData}>
+          <Button variant="outline" className="gap-2" onClick={() => { fetchData(); fetchStats(); }}>
             <Calculator className="h-4 w-4" />
             Muat Ulang
           </Button>
@@ -217,7 +222,7 @@ export function PerhitunganABK() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -286,6 +291,17 @@ export function PerhitunganABK() {
             )}
           </TableBody>
         </Table>
+        {total > 0 && (
+          <div className="border-t">
+            <DataTablePagination
+              total={total}
+              limit={limit}
+              offset={offset}
+              onPageChange={setOffset}
+              onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Formula Info */}

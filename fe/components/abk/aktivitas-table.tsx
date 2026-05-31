@@ -1,4 +1,4 @@
-
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,9 +38,14 @@ interface AktivitasTableProps {
   data: Aktivitas[];
   onEdit?: (aktivitas: Aktivitas) => void;
   onDelete?: (id: string) => void;
+  total?: number;
+  limit?: number;
+  offset?: number;
+  onPageChange?: (newOffset: number) => void;
+  onPageSizeChange?: (newLimit: number) => void;
 }
 
-export function AktivitasTable({ data, onEdit, onDelete }: AktivitasTableProps) {
+export function AktivitasTable({ data, onEdit, onDelete, total = 0, limit = 10, offset = 0, onPageChange, onPageSizeChange }: AktivitasTableProps) {
   const [search, setSearch] = useState("");
   const [filterKategori, setFilterKategori] = useState<string>("all");
   const [filterFrekuensi, setFilterFrekuensi] = useState<string>("all");
@@ -222,10 +227,23 @@ export function AktivitasTable({ data, onEdit, onDelete }: AktivitasTableProps) 
         </Table>
       </div>
 
+      {/* Pagination */}
+      {onPageChange && onPageSizeChange && total > 0 && (
+        <div className="rounded-lg border">
+          <DataTablePagination
+            total={total}
+            limit={limit}
+            offset={offset}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
+        </div>
+      )}
+
       {/* Summary */}
       <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-4">
         <p className="text-sm text-muted-foreground">
-          Menampilkan {filteredData.length} dari {data.length} aktivitas
+          Menampilkan {filteredData.length} dari {data.length} aktivitas (halaman ini)
         </p>
         <p className="text-sm font-medium">
           Total Jam/Tahun:{" "}

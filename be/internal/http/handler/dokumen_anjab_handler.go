@@ -31,11 +31,12 @@ func (h DokumenAnjabHandler) List(c *echo.Context) error {
 	opdID := c.QueryParam("opd_id")
 	status := c.QueryParam("status")
 	search := c.QueryParam("search")
-	items, err := store.ListDokumenAnjab(c.Request().Context(), h.DB, opdID, status, search)
+	limit, offset := parsePagination(c)
+	result, err := store.ListDokumenAnjab(c.Request().Context(), h.DB, opdID, status, search, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data dokumen anjab")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h DokumenAnjabHandler) Get(c *echo.Context) error {

@@ -23,23 +23,37 @@ type PerhitunganABK struct {
 	DeletedAt         *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListPerhitunganABK(ctx context.Context, db *sql.DB, jabatanID string) ([]PerhitunganABK, error) {
-	query := `
+func ListPerhitunganABK(ctx context.Context, db *sql.DB, jabatanID string, limit, offset int) (PaginatedResult[PerhitunganABK], error) {
+	base := `
 		SELECT p.id, p.jabatan_id, COALESCE(j.nama,''), p.total_waktu_kerja, p.waktu_kerja_efektif,
 			p.beban_kerja, p.kebutuhan_pegawai, p.pegawai_existing, p.selisih, COALESCE(p.keterangan,''),
 			p.created_at, p.updated_at
 		FROM perhitungan_abk p LEFT JOIN jabatan j ON j.id = p.jabatan_id
 		WHERE p.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM perhitungan_abk p WHERE p.deleted_at IS NULL`
 	args := make([]any, 0)
 	if jabatanID != "" {
-		query += " AND p.jabatan_id = ?"
+		cond := " AND p.jabatan_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, jabatanID)
 	}
-	query += " ORDER BY j.nama ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[PerhitunganABK]{}, err
+	}
+
+	base += " ORDER BY j.nama ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[PerhitunganABK]{}, err
 	}
 	defer rows.Close()
 
@@ -49,11 +63,14 @@ func ListPerhitunganABK(ctx context.Context, db *sql.DB, jabatanID string) ([]Pe
 		if err := rows.Scan(&p.ID, &p.JabatanID, &p.JabatanNama, &p.TotalWaktuKerja, &p.WaktuKerjaEfektif,
 			&p.BebanKerja, &p.KebutuhanPegawai, &p.PegawaiExisting, &p.Selisih, &p.Keterangan,
 			&p.CreatedAt, &p.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[PerhitunganABK]{}, err
 		}
 		out = append(out, p)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[PerhitunganABK]{}, err
+	}
+	return PaginatedResult[PerhitunganABK]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetPerhitunganByID(ctx context.Context, db *sql.DB, id string) (PerhitunganABK, error) {

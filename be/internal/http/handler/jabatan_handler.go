@@ -31,11 +31,12 @@ func (h JabatanHandler) List(c *echo.Context) error {
 	opdID := c.QueryParam("opd_id")
 	jenis := c.QueryParam("jenis")
 	search := c.QueryParam("search")
-	items, err := store.ListJabatan(c.Request().Context(), h.DB, opdID, jenis, search)
+	limit, offset := parsePagination(c)
+	result, err := store.ListJabatan(c.Request().Context(), h.DB, opdID, jenis, search, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data jabatan")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h JabatanHandler) Get(c *echo.Context) error {

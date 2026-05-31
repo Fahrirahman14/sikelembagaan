@@ -124,6 +124,16 @@ function OrgNode({ node, allNodes, expandedNodes, onToggle, onEdit, onDelete }: 
   );
 }
 
+function flattenTree(nodes: StrukturOrganisasi[]): StrukturOrganisasi[] {
+  const flat: StrukturOrganisasi[] = [];
+  function traverse(node: StrukturOrganisasi) {
+    flat.push({ ...node, children: [] });
+    node.children?.forEach(traverse);
+  }
+  nodes.forEach(traverse);
+  return flat;
+}
+
 export default function StrukturOrganisasiPage() {
   const [opdList, setOpdList] = useState<OPD[]>([]);
   const [selectedOpd, setSelectedOpd] = useState("none");
@@ -142,9 +152,9 @@ export default function StrukturOrganisasiPage() {
 
   // Load OPD list
   useEffect(() => {
-    api.opd.list().then((list) => {
-      setOpdList(list);
-      if (list.length > 0) setSelectedOpd(list[0].id);
+    api.opd.list({ limit: 0 }).then((r) => {
+      setOpdList(r.data);
+      if (r.data.length > 0) setSelectedOpd(r.data[0].id);
     });
   }, []);
 
@@ -154,14 +164,15 @@ export default function StrukturOrganisasiPage() {
     setLoading(true);
     Promise.all([
       api.struktur.listByOpd(selectedOpd),
-      api.pejabat.list({ opd_id: selectedOpd }),
-      api.jabatan.list({ opd_id: selectedOpd }),
+      api.pejabat.list({ opd_id: selectedOpd, limit: 0 }),
+      api.jabatan.list({ opd_id: selectedOpd, limit: 0 }),
     ])
-      .then(([strukturData, pejabatData, jabatanData]) => {
-        setNodes(strukturData);
-        setExpandedNodes(new Set(strukturData.map((n) => n.id)));
-        setPejabatList(pejabatData);
-        setJabatanList(jabatanData);
+      .then(([strukturData, pejabatResult, jabatanResult]) => {
+        const flat = flattenTree(strukturData);
+        setNodes(flat);
+        setExpandedNodes(new Set(flat.map((n) => n.id)));
+        setPejabatList(pejabatResult.data);
+        setJabatanList(jabatanResult.data);
       })
       .catch(() => toast.error("Gagal memuat data"))
       .finally(() => setLoading(false));

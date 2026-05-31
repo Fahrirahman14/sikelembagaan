@@ -36,6 +36,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type LaporanABK, type OPD } from "@/lib/api";
 import {
     Building2,
@@ -73,40 +74,53 @@ const emptyForm: CreateForm = {
 
 export function LaporanABKComponent() {
   const [data, setData] = useState<LaporanABK[]>([]);
+  const [statsData, setStatsData] = useState<LaporanABK[]>([]);
   const [opdList, setOpdList] = useState<OPD[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
   const [selectedLaporan, setSelectedLaporan] = useState<LaporanABK | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState<CreateForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
     try {
-      const result = await api.laporanAbk.list();
-      setData(result);
-    } catch {
-      // keep empty
-    }
+      const [statsResult, opds] = await Promise.all([
+        api.laporanAbk.list({ limit: 0 }),
+        api.opd.list({ limit: 0 }),
+      ]);
+      setStatsData(statsResult.data);
+      setOpdList(opds.data);
+    } catch { /* keep */ }
   }, []);
 
-  useEffect(() => {
-    fetchData();
-    api.opd.list().then(setOpdList);
-  }, [fetchData]);
+  const fetchData = useCallback(async () => {
+    try {
+      const result = await api.laporanAbk.list({ limit, offset });
+      setData(result.data);
+      setTotal(result.total);
+    } catch { /* keep empty */ }
+  }, [limit, offset]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const filteredData = data.filter((item) => {
-    const matchSearch = (item.opd_nama ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    const matchSearch = !search ||
+      (item.opd_nama ?? "").toLowerCase().includes(search.toLowerCase()) ||
       item.periode.includes(search);
     const matchStatus = filterStatus === "all" || item.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
-  const totalLaporan = data.length;
-  const laporanDisetujui = data.filter((d) => d.status === "disetujui").length;
-  const laporanFinal = data.filter((d) => d.status === "final").length;
-  const avgEfisiensi = data.length ? data.reduce((sum, item) => sum + item.efisiensi, 0) / data.length : 0;
+  const totalLaporan = total || statsData.length;
+  const laporanDisetujui = statsData.filter((d) => d.status === "disetujui").length;
+  const laporanFinal = statsData.filter((d) => d.status === "final").length;
+  const avgEfisiensi = statsData.length ? statsData.reduce((sum, item) => sum + item.efisiensi, 0) / statsData.length : 0;
 
   const getStatusBadge = (status: string) => {
     const config: Record<string, { variant: "default" | "secondary" | "outline"; icon: React.ReactNode; label: string }> = {
@@ -139,7 +153,7 @@ export function LaporanABKComponent() {
         total_pegawai_existing: form.total_pegawai_existing,
         efisiensi: form.efisiensi,
       });
-      await fetchData();
+      await fetchData(); await fetchStats();
       toast.success("Laporan ABK berhasil dibuat");
       setCreateOpen(false);
       setForm(emptyForm);
@@ -212,7 +226,7 @@ export function LaporanABKComponent() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card">
+      <div className="rounded-lg border bg-card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -290,6 +304,17 @@ export function LaporanABKComponent() {
             ))}
           </TableBody>
         </Table>
+        {total > 0 && (
+          <div className="border-t">
+            <DataTablePagination
+              total={total}
+              limit={limit}
+              offset={offset}
+              onPageChange={setOffset}
+              onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Detail Dialog */}

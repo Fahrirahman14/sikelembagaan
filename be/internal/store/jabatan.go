@@ -26,33 +26,50 @@ type Jabatan struct {
 	DeletedAt             *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListJabatan(ctx context.Context, db *sql.DB, opdID, jenis, search string) ([]Jabatan, error) {
-	query := `
+func ListJabatan(ctx context.Context, db *sql.DB, opdID, jenis, search string, limit, offset int) (PaginatedResult[Jabatan], error) {
+	base := `
 		SELECT j.id, j.opd_id, COALESCE(o.nama,''), j.kode, j.nama, j.jenis, COALESCE(j.eselon,''),
 			COALESCE(j.unit_kerja,''), COALESCE(j.ikhtisar,''), COALESCE(j.kualifikasi_pendidikan,''),
 			COALESCE(j.pengalaman,''), j.status_anjab, j.created_at, j.updated_at
 		FROM jabatan j
 		LEFT JOIN opd o ON o.id = j.opd_id
 		WHERE j.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM jabatan j WHERE j.deleted_at IS NULL`
 	args := make([]any, 0)
 	if opdID != "" {
-		query += " AND j.opd_id = ?"
+		cond := " AND j.opd_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, opdID)
 	}
 	if jenis != "" {
-		query += " AND j.jenis = ?"
+		cond := " AND j.jenis = ?"
+		base += cond
+		cnt += cond
 		args = append(args, jenis)
 	}
 	if search != "" {
-		query += " AND (j.nama LIKE ? OR j.kode LIKE ?)"
+		base += " AND (j.nama LIKE ? OR j.kode LIKE ?)"
+		cnt += " AND (j.nama LIKE ? OR j.kode LIKE ?)"
 		s := "%" + search + "%"
 		args = append(args, s, s)
 	}
-	query += " ORDER BY j.nama ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[Jabatan]{}, err
+	}
+
+	base += " ORDER BY j.nama ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[Jabatan]{}, err
 	}
 	defer rows.Close()
 
@@ -62,11 +79,14 @@ func ListJabatan(ctx context.Context, db *sql.DB, opdID, jenis, search string) (
 		if err := rows.Scan(&j.ID, &j.OpdID, &j.OpdNama, &j.Kode, &j.Nama, &j.Jenis, &j.Eselon,
 			&j.UnitKerja, &j.Ikhtisar, &j.KualifikasiPendidikan, &j.Pengalaman,
 			&j.StatusAnjab, &j.CreatedAt, &j.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[Jabatan]{}, err
 		}
 		out = append(out, j)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Jabatan]{}, err
+	}
+	return PaginatedResult[Jabatan]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetJabatanByID(ctx context.Context, db *sql.DB, id string) (Jabatan, error) {

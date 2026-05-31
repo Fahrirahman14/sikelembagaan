@@ -39,8 +39,8 @@ export function RecentActivity() {
   useEffect(() => {
     const fetchActivities = async () => {
       try {
-        const data = await api.aktivitas.list();
-        const mapped: Activity[] = data.map((a) => {
+        const result = await api.aktivitas.list({ limit: 5 });
+        const mapped: Activity[] = result.data.map((a) => {
           let icon = "FileText";
           let color = "bg-gray-100 text-gray-600";
           if (a.kategori === "utama") {

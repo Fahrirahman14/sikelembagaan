@@ -32,11 +32,12 @@ func (h SAKIPHandler) ListNilai(c *echo.Context) error {
 	if t := c.QueryParam("tahun"); t != "" {
 		tahun, _ = strconv.Atoi(t)
 	}
-	items, err := store.ListNilaiSAKIP(c.Request().Context(), h.DB, opdID, tahun)
+	limit, offset := parsePagination(c)
+	result, err := store.ListNilaiSAKIP(c.Request().Context(), h.DB, opdID, tahun, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data nilai SAKIP")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h SAKIPHandler) UpsertNilai(c *echo.Context) error {
@@ -72,11 +73,12 @@ func (h SAKIPHandler) ListDokumen(c *echo.Context) error {
 	if t := c.QueryParam("tahun"); t != "" {
 		tahun, _ = strconv.Atoi(t)
 	}
-	items, err := store.ListDokumenSAKIP(c.Request().Context(), h.DB, opdID, tahun)
+	limit, offset := parsePagination(c)
+	result, err := store.ListDokumenSAKIP(c.Request().Context(), h.DB, opdID, tahun, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data dokumen SAKIP")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h SAKIPHandler) CreateDokumen(c *echo.Context) error {

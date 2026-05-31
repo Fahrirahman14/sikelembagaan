@@ -26,26 +26,40 @@ type OPD struct {
 	DeletedAt    *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListOPD(ctx context.Context, db *sql.DB, search string) ([]OPD, error) {
-	query := `
+func ListOPD(ctx context.Context, db *sql.DB, search string, limit, offset int) (PaginatedResult[OPD], error) {
+	base := `
 		SELECT o.id, o.kode, o.nama, COALESCE(o.alamat,''), COALESCE(o.telepon,''), COALESCE(o.email,''),
 			COALESCE(o.kepala,''), COALESCE(o.nip_kepala,''), o.status_anjab, o.status_abk,
 			(SELECT COUNT(*) FROM pejabat p WHERE p.opd_id = o.id AND p.deleted_at IS NULL) as total_pegawai,
 			(SELECT COUNT(*) FROM jabatan j WHERE j.opd_id = o.id AND j.deleted_at IS NULL) as total_jabatan,
 			o.created_at, o.updated_at
 		FROM opd o WHERE o.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM opd o WHERE o.deleted_at IS NULL`
 
 	args := make([]any, 0)
 	if search != "" {
-		query += " AND (o.nama LIKE ? OR o.kode LIKE ?)"
+		cond := " AND (o.nama LIKE ? OR o.kode LIKE ?)"
+		base += cond
+		cnt += cond
 		s := "%" + search + "%"
 		args = append(args, s, s)
 	}
-	query += " ORDER BY o.nama ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[OPD]{}, err
+	}
+
+	base += " ORDER BY o.nama ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[OPD]{}, err
 	}
 	defer rows.Close()
 
@@ -55,11 +69,14 @@ func ListOPD(ctx context.Context, db *sql.DB, search string) ([]OPD, error) {
 		if err := rows.Scan(&o.ID, &o.Kode, &o.Nama, &o.Alamat, &o.Telepon, &o.Email,
 			&o.Kepala, &o.NipKepala, &o.StatusAnjab, &o.StatusAbk,
 			&o.TotalPegawai, &o.TotalJabatan, &o.CreatedAt, &o.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[OPD]{}, err
 		}
 		out = append(out, o)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[OPD]{}, err
+	}
+	return PaginatedResult[OPD]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetOPDByID(ctx context.Context, db *sql.DB, id string) (OPD, error) {

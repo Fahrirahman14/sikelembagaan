@@ -25,28 +25,43 @@ type Pejabat struct {
 	DeletedAt  *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListPejabat(ctx context.Context, db *sql.DB, opdID, search string) ([]Pejabat, error) {
-	query := `
+func ListPejabat(ctx context.Context, db *sql.DB, opdID, search string, limit, offset int) (PaginatedResult[Pejabat], error) {
+	base := `
 		SELECT p.id, p.opd_id, COALESCE(o.nama,''), p.nip, p.nama, COALESCE(p.jabatan,''), COALESCE(p.eselon,''),
 			COALESCE(p.pangkat,''), COALESCE(p.golongan,''), p.tmt_jabatan, COALESCE(p.pendidikan,''),
 			p.created_at, p.updated_at
 		FROM pejabat p LEFT JOIN opd o ON o.id = p.opd_id
 		WHERE p.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM pejabat p WHERE p.deleted_at IS NULL`
 	args := make([]any, 0)
 	if opdID != "" {
-		query += " AND p.opd_id = ?"
+		cond := " AND p.opd_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, opdID)
 	}
 	if search != "" {
-		query += " AND (p.nama LIKE ? OR p.nip LIKE ?)"
+		base += " AND (p.nama LIKE ? OR p.nip LIKE ?)"
+		cnt += " AND (p.nama LIKE ? OR p.nip LIKE ?)"
 		s := "%" + search + "%"
 		args = append(args, s, s)
 	}
-	query += " ORDER BY p.nama ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[Pejabat]{}, err
+	}
+
+	base += " ORDER BY p.nama ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[Pejabat]{}, err
 	}
 	defer rows.Close()
 
@@ -56,14 +71,17 @@ func ListPejabat(ctx context.Context, db *sql.DB, opdID, search string) ([]Pejab
 		var tmt sql.NullTime
 		if err := rows.Scan(&p.ID, &p.OpdID, &p.OpdNama, &p.NIP, &p.Nama, &p.Jabatan, &p.Eselon,
 			&p.Pangkat, &p.Golongan, &tmt, &p.Pendidikan, &p.CreatedAt, &p.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[Pejabat]{}, err
 		}
 		if tmt.Valid {
 			p.TmtJabatan = &tmt.Time
 		}
 		out = append(out, p)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Pejabat]{}, err
+	}
+	return PaginatedResult[Pejabat]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetPejabatByID(ctx context.Context, db *sql.DB, id string) (Pejabat, error) {

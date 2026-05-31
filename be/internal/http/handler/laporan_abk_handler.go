@@ -28,11 +28,12 @@ type laporanABKRequest struct {
 
 func (h LaporanABKHandler) List(c *echo.Context) error {
 	opdID := c.QueryParam("opd_id")
-	items, err := store.ListLaporanABK(c.Request().Context(), h.DB, opdID)
+	limit, offset := parsePagination(c)
+	result, err := store.ListLaporanABK(c.Request().Context(), h.DB, opdID, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data laporan ABK")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h LaporanABKHandler) Get(c *echo.Context) error {

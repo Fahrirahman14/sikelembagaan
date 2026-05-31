@@ -23,30 +23,47 @@ type Aktivitas struct {
 	DeletedAt       *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListAktivitas(ctx context.Context, db *sql.DB, jabatanID, kategori, search string) ([]Aktivitas, error) {
-	query := `
+func ListAktivitas(ctx context.Context, db *sql.DB, jabatanID, kategori, search string, limit, offset int) (PaginatedResult[Aktivitas], error) {
+	base := `
 		SELECT a.id, a.jabatan_id, COALESCE(j.nama,''), a.uraian_tugas, a.satuan, a.norma_waktu,
 			a.target_kuantitas, a.frekuensi, a.kategori, a.created_at, a.updated_at
 		FROM aktivitas a LEFT JOIN jabatan j ON j.id = a.jabatan_id
 		WHERE a.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM aktivitas a WHERE a.deleted_at IS NULL`
 	args := make([]any, 0)
 	if jabatanID != "" {
-		query += " AND a.jabatan_id = ?"
+		cond := " AND a.jabatan_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, jabatanID)
 	}
 	if kategori != "" {
-		query += " AND a.kategori = ?"
+		cond := " AND a.kategori = ?"
+		base += cond
+		cnt += cond
 		args = append(args, kategori)
 	}
 	if search != "" {
-		query += " AND a.uraian_tugas LIKE ?"
+		base += " AND a.uraian_tugas LIKE ?"
+		cnt += " AND a.uraian_tugas LIKE ?"
 		args = append(args, "%"+search+"%")
 	}
-	query += " ORDER BY a.created_at ASC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[Aktivitas]{}, err
+	}
+
+	base += " ORDER BY a.created_at ASC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[Aktivitas]{}, err
 	}
 	defer rows.Close()
 
@@ -56,11 +73,14 @@ func ListAktivitas(ctx context.Context, db *sql.DB, jabatanID, kategori, search 
 		if err := rows.Scan(&a.ID, &a.JabatanID, &a.JabatanNama, &a.UraianTugas, &a.Satuan,
 			&a.NormaWaktu, &a.TargetKuantitas, &a.Frekuensi, &a.Kategori,
 			&a.CreatedAt, &a.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[Aktivitas]{}, err
 		}
 		out = append(out, a)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[Aktivitas]{}, err
+	}
+	return PaginatedResult[Aktivitas]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetAktivitasByID(ctx context.Context, db *sql.DB, id string) (Aktivitas, error) {

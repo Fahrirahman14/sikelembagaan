@@ -30,6 +30,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type Jabatan, type OPD, type UraianJabatan } from "@/lib/api";
 import {
     Briefcase,
@@ -47,7 +48,7 @@ import {
     Target,
     Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 // ----- Type definitions -----
@@ -108,23 +109,32 @@ export default function UraianJabatanPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [opdList, setOpdList] = useState<OPD[]>([]);
   const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
   const [uraianMap, setUraianMap] = useState<Record<string, UraianJabatan>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [editData, setEditData] = useState<UraianParsed>(defaultUraian);
 
   useEffect(() => {
-    api.opd.list().then(setOpdList);
-    api.jabatan.list().then(setJabatanList);
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data));
   }, []);
 
-  const filteredData = jabatanList.filter((jabatan) => {
-    const matchSearch =
-      jabatan.nama.toLowerCase().includes(search.toLowerCase()) ||
-      jabatan.kode.includes(search);
-    const matchOpd = opdFilter === "all" || jabatan.opd_id === opdFilter;
-    return matchSearch && matchOpd;
-  });
+  const fetchJabatan = useCallback(async () => {
+    const result = await api.jabatan.list({
+      opd_id: opdFilter !== "all" ? opdFilter : undefined,
+      search: search || undefined,
+      limit,
+      offset,
+    });
+    setJabatanList(result.data);
+    setTotal(result.total);
+  }, [opdFilter, search, limit, offset]);
+
+  useEffect(() => { fetchJabatan(); }, [fetchJabatan]);
+
+  const filteredData = jabatanList;
 
   async function loadUraian(jabatan: Jabatan): Promise<UraianJabatan | null> {
     if (uraianMap[jabatan.id]) return uraianMap[jabatan.id];
@@ -205,7 +215,7 @@ export default function UraianJabatanPage() {
       {/* Stats */}
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Total Jabatan", value: jabatanList.length, Icon: FileText, color: "bg-primary/10 text-primary" },
+          { label: "Total Jabatan", value: total, Icon: FileText, color: "bg-primary/10 text-primary" },
           { label: "Sudah Lengkap", value: jabatanList.filter((j) => j.status_anjab === "disetujui").length, Icon: CheckCircle, color: "bg-emerald-100 text-emerald-600" },
           { label: "Dalam Proses", value: jabatanList.filter((j) => j.status_anjab === "final").length, Icon: Target, color: "bg-accent/30 text-accent-foreground" },
           { label: "Draft", value: jabatanList.filter((j) => j.status_anjab === "draft").length, Icon: Briefcase, color: "bg-muted text-muted-foreground" },
@@ -230,10 +240,10 @@ export default function UraianJabatanPage() {
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Cari jabatan..." value={search} onChange={(e) => setSearch(e.target.value)}
+              <Input placeholder="Cari jabatan..." value={search} onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
                 className="h-11 rounded-xl border-border/70 bg-background/80 pl-9" />
             </div>
-            <Select value={opdFilter} onValueChange={setOpdFilter}>
+            <Select value={opdFilter} onValueChange={(v) => { setOpdFilter(v); setOffset(0); }}>
               <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-64">
                 <SelectValue placeholder="Filter OPD" />
               </SelectTrigger>
@@ -308,6 +318,17 @@ export default function UraianJabatanPage() {
               </TableBody>
             </Table>
           </div>
+          {total > 0 && (
+            <div className="border-t border-border/70">
+              <DataTablePagination
+                total={total}
+                limit={limit}
+                offset={offset}
+                onPageChange={setOffset}
+                onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

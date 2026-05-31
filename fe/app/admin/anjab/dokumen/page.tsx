@@ -30,6 +30,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type DokumenAnjab, type OPD } from "@/lib/api";
 import {
     AlertCircle,
@@ -70,10 +71,14 @@ function StatusBadge({ status }: { status: DokumenAnjab["status"] }) {
 
 export default function DokumenAnjabPage() {
   const [items, setItems] = useState<DokumenAnjab[]>([]);
+  const [statsData, setStatsData] = useState<DokumenAnjab[]>([]);
   const [opdList, setOpdList] = useState<OPD[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
   const [selectedDokumen, setSelectedDokumen] = useState<DokumenAnjab | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -81,63 +86,72 @@ export default function DokumenAnjabPage() {
   const [newPeriode, setNewPeriode] = useState("");
   const [newNomor, setNewNomor] = useState("");
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchStats = useCallback(async () => {
     try {
-      const [docs, opds] = await Promise.all([api.dokumenAnjab.list(), api.opd.list()]);
-      setItems(docs);
-      setOpdList(opds);
-    } catch {
-      // keep previous data
-    } finally {
-      setLoading(false);
-    }
+      const [statsResult, opds] = await Promise.all([
+        api.dokumenAnjab.list({ limit: 0 }),
+        api.opd.list({ limit: 0 }),
+      ]);
+      setStatsData(statsResult.data);
+      setOpdList(opds.data);
+    } catch { /* keep previous */ }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchTable = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await api.dokumenAnjab.list({
+        search: search || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        limit,
+        offset,
+      });
+      setItems(result.data);
+      setTotal(result.total);
+    } catch { /* keep previous */ } finally {
+      setLoading(false);
+    }
+  }, [search, statusFilter, limit, offset]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchTable(); }, [fetchTable]);
 
   const handleCreate = async () => {
     if (!newOpdId || !newPeriode) return;
     await api.dokumenAnjab.create({ opd_id: newOpdId, periode: newPeriode, nomor_dokumen: newNomor });
     setCreateOpen(false);
     setNewOpdId(""); setNewPeriode(""); setNewNomor("");
-    fetchData();
+    fetchTable(); fetchStats();
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Hapus dokumen ini?")) return;
     await api.dokumenAnjab.delete(id);
-    fetchData();
+    fetchTable(); fetchStats();
   };
 
   const handleSubmit = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     await api.dokumenAnjab.submit(id);
-    fetchData();
+    fetchTable(); fetchStats();
     if (selectedDokumen?.id === id) setDetailOpen(false);
   };
 
   const handleApprove = async (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     await api.dokumenAnjab.approve(id, "Admin");
-    fetchData();
+    fetchTable(); fetchStats();
     if (selectedDokumen?.id === id) setDetailOpen(false);
   };
 
-  const filteredData = items.filter((doc) => {
-    const matchSearch =
-      (doc.opd_nama ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      doc.nomor_dokumen.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || doc.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const filteredData = items;
 
   const stats = {
-    total: items.length,
-    draft: items.filter((d) => d.status === "draft").length,
-    review: items.filter((d) => d.status === "review").length,
-    disetujui: items.filter((d) => d.status === "disetujui").length,
+    total: statsData.length || total,
+    draft: statsData.filter((d) => d.status === "draft").length,
+    review: statsData.filter((d) => d.status === "review").length,
+    disetujui: statsData.filter((d) => d.status === "disetujui").length,
   };
 
   const openDetail = (doc: DokumenAnjab) => {
@@ -294,11 +308,11 @@ export default function DokumenAnjabPage() {
                     <Input
                       placeholder="Cari dokumen..."
                       value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
                       className="h-11 rounded-xl border-border/70 bg-background/80 pl-9 sm:w-64"
                     />
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setOffset(0); }}>
                     <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-44">
                       <Filter className="mr-2 h-4 w-4" />
                       <SelectValue placeholder="Status" />
@@ -371,6 +385,17 @@ export default function DokumenAnjabPage() {
                   </TableBody>
                 </Table>
               </div>
+              {total > 0 && (
+                <div className="border-t border-border/70">
+                  <DataTablePagination
+                    total={total}
+                    limit={limit}
+                    offset={offset}
+                    onPageChange={setOffset}
+                    onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
 

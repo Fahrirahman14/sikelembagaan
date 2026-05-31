@@ -21,6 +21,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type DashboardSummary, type DokumenAnjab, type LaporanABK, type RekapOPD } from "@/lib/api";
 import {
     BarChart3,
@@ -36,7 +37,7 @@ import {
     TrendingUp,
     Users
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function LaporanPage() {
   const [periode, setPeriode] = useState("2024");
@@ -44,17 +45,41 @@ export default function LaporanPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [rekapList, setRekapList] = useState<RekapOPD[]>([]);
   const [dokumenList, setDokumenList] = useState<DokumenAnjab[]>([]);
+  const [dokumenTotal, setDokumenTotal] = useState(0);
+  const [dokumenLimit, setDokumenLimit] = useState(10);
+  const [dokumenOffset, setDokumenOffset] = useState(0);
   const [laporanList, setLaporanList] = useState<LaporanABK[]>([]);
+  const [laporanTotal, setLaporanTotal] = useState(0);
+  const [laporanLimit, setLaporanLimit] = useState(10);
+  const [laporanOffset, setLaporanOffset] = useState(0);
+  // Full data for stats
+  const [allLaporan, setAllLaporan] = useState<LaporanABK[]>([]);
+
+  const fetchDokumen = useCallback(async () => {
+    const result = await api.dokumenAnjab.list({ limit: dokumenLimit, offset: dokumenOffset });
+    setDokumenList(result.data);
+    setDokumenTotal(result.total);
+  }, [dokumenLimit, dokumenOffset]);
+
+  const fetchLaporan = useCallback(async () => {
+    const [paged, all] = await Promise.all([
+      api.laporanAbk.list({ limit: laporanLimit, offset: laporanOffset }),
+      api.laporanAbk.list({ limit: 0 }),
+    ]);
+    setLaporanList(paged.data);
+    setLaporanTotal(paged.total);
+    setAllLaporan(all.data);
+  }, [laporanLimit, laporanOffset]);
 
   useEffect(() => {
     api.dashboard.summary().then(setSummary);
     api.dashboard.rekapOpd().then(setRekapList);
-    api.dokumenAnjab.list().then(setDokumenList);
-    api.laporanAbk.list().then(setLaporanList);
   }, []);
+  useEffect(() => { fetchDokumen(); }, [fetchDokumen]);
+  useEffect(() => { fetchLaporan(); }, [fetchLaporan]);
 
-  const kebutuhanTotal = laporanList.reduce((sum, l) => sum + l.total_kebutuhan_pegawai, 0);
-  const existingTotal = laporanList.reduce((sum, l) => sum + l.total_pegawai_existing, 0);
+  const kebutuhanTotal = allLaporan.reduce((sum, l) => sum + l.total_kebutuhan_pegawai, 0);
+  const existingTotal = allLaporan.reduce((sum, l) => sum + l.total_pegawai_existing, 0);
   const selisihPegawai = kebutuhanTotal - existingTotal;
   const persentaseAnjab = summary ? (summary.anjab_selesai / (summary.total_opd || 1)) * 100 : 0;
   const persentaseAbk = summary ? (summary.abk_selesai / (summary.total_opd || 1)) * 100 : 0;
@@ -404,6 +429,17 @@ export default function LaporanPage() {
                       </TableBody>
                     </Table>
                   </div>
+                  {dokumenTotal > 0 && (
+                    <div className="border-t border-border/70">
+                      <DataTablePagination
+                        total={dokumenTotal}
+                        limit={dokumenLimit}
+                        offset={dokumenOffset}
+                        onPageChange={setDokumenOffset}
+                        onPageSizeChange={(nl) => { setDokumenLimit(nl); setDokumenOffset(0); }}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -473,6 +509,17 @@ export default function LaporanPage() {
                       </TableBody>
                     </Table>
                   </div>
+                  {laporanTotal > 0 && (
+                    <div className="border-t border-border/70">
+                      <DataTablePagination
+                        total={laporanTotal}
+                        limit={laporanLimit}
+                        offset={laporanOffset}
+                        onPageChange={setLaporanOffset}
+                        onPageSizeChange={(nl) => { setLaporanLimit(nl); setLaporanOffset(0); }}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

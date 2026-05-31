@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import {
     api,
     type DokumenSAKIP,
@@ -52,7 +53,7 @@ import {
     Trash2,
     Upload,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 const PREDIKAT_OPTIONS = ["AA", "A", "BB", "B", "CC", "C", "D"];
@@ -84,6 +85,10 @@ export default function AdminSAKIPPage() {
     linkDokumen: "", tahun: new Date().getFullYear(),
   });
 
+  const [dokumenTotal, setDokumenTotal] = useState(0);
+  const [dokumenLimit, setDokumenLimit] = useState(10);
+  const [dokumenOffset, setDokumenOffset] = useState(0);
+
   // Nilai SAKIP state
   const [nilaiList, setNilaiList] = useState<NilaiSAKIP[]>([]);
   const [nilaiSearch, setNilaiSearch] = useState("");
@@ -95,21 +100,42 @@ export default function AdminSAKIPPage() {
     opdId: "", tahun: new Date().getFullYear(),
     nilaiTotal: 0, predikat: "B" as string, catatan: "",
   });
+  const [nilaiTotal, setNilaiTotal] = useState(0);
+  const [nilaiLimit, setNilaiLimit] = useState(10);
+  const [nilaiOffset, setNilaiOffset] = useState(0);
+
+  const fetchDokumen = useCallback(async () => {
+    const result = await api.dokumenSakip.list({
+      opd_id: dokumenOpdFilter !== "all" ? dokumenOpdFilter : undefined,
+      limit: dokumenLimit,
+      offset: dokumenOffset,
+    });
+    setDokumenList(result.data);
+    setDokumenTotal(result.total);
+  }, [dokumenOpdFilter, dokumenLimit, dokumenOffset]);
+
+  const fetchNilai = useCallback(async () => {
+    const result = await api.nilaiSakip.list({
+      limit: nilaiLimit,
+      offset: nilaiOffset,
+    });
+    setNilaiList(result.data);
+    setNilaiTotal(result.total);
+  }, [nilaiLimit, nilaiOffset]);
 
   useEffect(() => {
-    api.opd.list().then(setOpdList);
-    api.dokumenSakip.list().then(setDokumenList);
-    api.nilaiSakip.list().then(setNilaiList);
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data));
   }, []);
+  useEffect(() => { fetchDokumen(); }, [fetchDokumen]);
+  useEffect(() => { fetchNilai(); }, [fetchNilai]);
 
   // ---- Dokumen SAKIP handlers ----
   const filteredDokumen = dokumenList.filter((doc) => {
-    const matchSearch =
+    const matchSearch = !dokumenSearch ||
       doc.nama_dokumen.toLowerCase().includes(dokumenSearch.toLowerCase()) ||
       (doc.opd_nama ?? "").toLowerCase().includes(dokumenSearch.toLowerCase());
-    const matchOpd = dokumenOpdFilter === "all" || doc.opd_id === dokumenOpdFilter;
     const matchJenis = dokumenJenisFilter === "all" || doc.jenis_dokumen === dokumenJenisFilter;
-    return matchSearch && matchOpd && matchJenis;
+    return matchSearch && matchJenis;
   });
 
   async function handleUploadSubmit() {
@@ -127,8 +153,7 @@ export default function AdminSAKIPPage() {
         file_path: uploadForm.linkDokumen || "",
         uploaded_by: "Admin",
       });
-      const updated = await api.dokumenSakip.list();
-      setDokumenList(updated);
+      await fetchDokumen();
       toast.success("Dokumen SAKIP berhasil diupload");
       setUploadDialogOpen(false);
       setUploadForm({ opdId: "", namaDokumen: "", jenisDokumen: "renstra", linkDokumen: "", tahun: new Date().getFullYear() });
@@ -142,7 +167,7 @@ export default function AdminSAKIPPage() {
   async function handleDeleteDokumen(id: string) {
     try {
       await api.dokumenSakip.delete(id);
-      setDokumenList((prev) => prev.filter((d) => d.id !== id));
+      await fetchDokumen();
       toast.success("Dokumen dihapus");
     } catch {
       toast.error("Gagal menghapus dokumen");
@@ -153,7 +178,7 @@ export default function AdminSAKIPPage() {
   const availableTahun = [...new Set(nilaiList.map((n) => n.tahun))].sort((a, b) => b - a);
 
   const filteredNilai = nilaiList.filter((n) => {
-    const matchSearch =
+    const matchSearch = !nilaiSearch ||
       (n.opd_nama ?? "").toLowerCase().includes(nilaiSearch.toLowerCase());
     const matchTahun = nilaiTahunFilter === "all" || String(n.tahun) === nilaiTahunFilter;
     return matchSearch && matchTahun;
@@ -185,8 +210,7 @@ export default function AdminSAKIPPage() {
         predikat: nilaiForm.predikat,
         komponen_nilai: undefined,
       });
-      const updated = await api.nilaiSakip.list();
-      setNilaiList(updated);
+      await fetchNilai();
       toast.success(selectedNilai ? "Nilai SAKIP diperbarui" : "Nilai SAKIP berhasil disimpan");
       setNilaiDialogOpen(false);
     } catch {
@@ -264,7 +288,7 @@ export default function AdminSAKIPPage() {
                   <Input placeholder="Cari dokumen..." value={dokumenSearch} onChange={(e) => setDokumenSearch(e.target.value)}
                     className="h-11 rounded-xl border-border/70 bg-background/80 pl-10" />
                 </div>
-                <Select value={dokumenOpdFilter} onValueChange={setDokumenOpdFilter}>
+                <Select value={dokumenOpdFilter} onValueChange={(v) => { setDokumenOpdFilter(v); setDokumenOffset(0); }}>
                   <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-48">
                     <SelectValue placeholder="Filter OPD" />
                   </SelectTrigger>
@@ -345,6 +369,17 @@ export default function AdminSAKIPPage() {
                   </TableBody>
                 </Table>
               </div>
+              {dokumenTotal > 0 && (
+                <div className="border-t border-border/70">
+                  <DataTablePagination
+                    total={dokumenTotal}
+                    limit={dokumenLimit}
+                    offset={dokumenOffset}
+                    onPageChange={setDokumenOffset}
+                    onPageSizeChange={(nl) => { setDokumenLimit(nl); setDokumenOffset(0); }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -426,6 +461,17 @@ export default function AdminSAKIPPage() {
                   </TableBody>
                 </Table>
               </div>
+              {nilaiTotal > 0 && (
+                <div className="border-t border-border/70">
+                  <DataTablePagination
+                    total={nilaiTotal}
+                    limit={nilaiLimit}
+                    offset={nilaiOffset}
+                    onPageChange={setNilaiOffset}
+                    onPageSizeChange={(nl) => { setNilaiLimit(nl); setNilaiOffset(0); }}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

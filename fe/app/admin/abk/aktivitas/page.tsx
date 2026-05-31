@@ -12,17 +12,28 @@ import { useCallback, useEffect, useState } from "react";
 
 export default function InputAktivitasPage() {
   const [aktivitasList, setAktivitasList] = useState<Aktivitas[]>([]);
+  const [statsData, setStatsData] = useState<Aktivitas[]>([]);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
 
-  const fetchData = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
     try {
-      const data = await api.aktivitas.list();
-      setAktivitasList(data);
-    } catch {
-      // keep previous data
-    }
+      const result = await api.aktivitas.list({ limit: 0 });
+      setStatsData(result.data);
+    } catch { /* keep */ }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchTable = useCallback(async () => {
+    try {
+      const result = await api.aktivitas.list({ limit, offset });
+      setAktivitasList(result.data);
+      setTotal(result.total);
+    } catch { /* keep previous data */ }
+  }, [limit, offset]);
+
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchTable(); }, [fetchTable]);
 
   const handleAddAktivitas = async (data: AktivitasFormData) => {
     await api.aktivitas.create({
@@ -34,15 +45,15 @@ export default function InputAktivitasPage() {
       frekuensi: data.frekuensi,
       kategori: data.kategori,
     });
-    fetchData();
+    fetchTable(); fetchStats();
   };
 
   const handleDeleteAktivitas = async (id: string) => {
     await api.aktivitas.delete(id);
-    fetchData();
+    fetchTable(); fetchStats();
   };
 
-  const totalJabatan = new Set(aktivitasList.map((a) => a.jabatan_id)).size;
+  const totalJabatan = new Set(statsData.map((a) => a.jabatan_id)).size;
 
   return (
     <AdminPageShell>
@@ -73,7 +84,7 @@ export default function InputAktivitasPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-2xl font-bold">{aktivitasList.length}</p>
+                  <p className="text-2xl font-bold">{total}</p>
                   <p className="text-xs text-muted-foreground">aktivitas terdaftar</p>
                 </CardContent>
               </Card>
@@ -129,6 +140,11 @@ export default function InputAktivitasPage() {
                 <AktivitasTable
                   data={aktivitasList}
                   onDelete={handleDeleteAktivitas}
+                  total={total}
+                  limit={limit}
+                  offset={offset}
+                  onPageChange={setOffset}
+                  onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
                 />
               </CardContent>
             </Card>

@@ -25,32 +25,49 @@ type DokumenAnjab struct {
 	DeletedAt     *time.Time `json:"deleted_at,omitempty"`
 }
 
-func ListDokumenAnjab(ctx context.Context, db *sql.DB, opdID, status, search string) ([]DokumenAnjab, error) {
-	query := `
+func ListDokumenAnjab(ctx context.Context, db *sql.DB, opdID, status, search string, limit, offset int) (PaginatedResult[DokumenAnjab], error) {
+	base := `
 		SELECT d.id, d.opd_id, COALESCE(o.nama,''), COALESCE(d.nomor_dokumen,''), d.nama_opd, d.periode,
 			d.jumlah_jabatan, d.tanggal_dibuat, d.status, COALESCE(d.pembuat,''), COALESCE(d.penyetuju,''),
 			d.created_at, d.updated_at
 		FROM dokumen_anjab d LEFT JOIN opd o ON o.id = d.opd_id
 		WHERE d.deleted_at IS NULL`
+	cnt := `SELECT COUNT(*) FROM dokumen_anjab d WHERE d.deleted_at IS NULL`
 	args := make([]any, 0)
 	if opdID != "" {
-		query += " AND d.opd_id = ?"
+		cond := " AND d.opd_id = ?"
+		base += cond
+		cnt += cond
 		args = append(args, opdID)
 	}
 	if status != "" {
-		query += " AND d.status = ?"
+		cond := " AND d.status = ?"
+		base += cond
+		cnt += cond
 		args = append(args, status)
 	}
 	if search != "" {
-		query += " AND (d.nama_opd LIKE ? OR d.nomor_dokumen LIKE ?)"
+		base += " AND (d.nama_opd LIKE ? OR d.nomor_dokumen LIKE ?)"
+		cnt += " AND (d.nama_opd LIKE ? OR d.nomor_dokumen LIKE ?)"
 		s := "%" + search + "%"
 		args = append(args, s, s)
 	}
-	query += " ORDER BY d.tanggal_dibuat DESC"
 
-	rows, err := db.QueryContext(ctx, query, args...)
+	var total int
+	if err := db.QueryRowContext(ctx, cnt, args...).Scan(&total); err != nil {
+		return PaginatedResult[DokumenAnjab]{}, err
+	}
+
+	base += " ORDER BY d.tanggal_dibuat DESC"
+	pageArgs := append([]any{}, args...)
+	if limit > 0 {
+		base += " LIMIT ? OFFSET ?"
+		pageArgs = append(pageArgs, limit, offset)
+	}
+
+	rows, err := db.QueryContext(ctx, base, pageArgs...)
 	if err != nil {
-		return nil, err
+		return PaginatedResult[DokumenAnjab]{}, err
 	}
 	defer rows.Close()
 
@@ -60,11 +77,14 @@ func ListDokumenAnjab(ctx context.Context, db *sql.DB, opdID, status, search str
 		if err := rows.Scan(&d.ID, &d.OpdID, &d.OpdNama, &d.NomorDokumen, &d.NamaOpd, &d.Periode,
 			&d.JumlahJabatan, &d.TanggalDibuat, &d.Status, &d.Pembuat, &d.Penyetuju,
 			&d.CreatedAt, &d.UpdatedAt); err != nil {
-			return nil, err
+			return PaginatedResult[DokumenAnjab]{}, err
 		}
 		out = append(out, d)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return PaginatedResult[DokumenAnjab]{}, err
+	}
+	return PaginatedResult[DokumenAnjab]{Data: out, Total: total, Limit: limit, Offset: offset}, nil
 }
 
 func GetDokumenAnjabByID(ctx context.Context, db *sql.DB, id string) (DokumenAnjab, error) {

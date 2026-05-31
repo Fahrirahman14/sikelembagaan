@@ -30,6 +30,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { JabatanCombobox } from "@/components/jabatan-combobox";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type Jabatan, type OPD, type Pejabat } from "@/lib/api";
 import {
     Edit,
@@ -97,50 +98,64 @@ export default function DataPegawaiPage() {
   const [saving, setSaving] = useState(false);
   const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
 
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
+  const [statsData, setStatsData] = useState<Pejabat[]>([]);
+
   // Load jabatan ketika OPD berubah di form dialog
   useEffect(() => {
     if (!dialogOpen) return;
     if (!form.opd_id || form.opd_id === "none") { setJabatanList([]); return; }
-    api.jabatan.list({ opd_id: form.opd_id }).then(setJabatanList).catch(() => {});
+    api.jabatan.list({ opd_id: form.opd_id, limit: 0 }).then((r) => setJabatanList(r.data)).catch(() => {});
   }, [form.opd_id, dialogOpen]);
 
-  const fetchData = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
+    try {
+      const [statsResult, opdData] = await Promise.all([
+        api.pejabat.list({ opd_id: opdFilter !== "all" ? opdFilter : undefined, limit: 0 }),
+        api.opd.list({ limit: 0 }),
+      ]);
+      setStatsData(statsResult.data);
+      setOpdList(opdData.data);
+    } catch { /* keep previous */ }
+  }, [opdFilter]);
+
+  const fetchTable = useCallback(async () => {
     setLoading(true);
     try {
-      const [pegawaiData, opdData] = await Promise.all([
-        api.pejabat.list({ opd_id: opdFilter !== "all" ? opdFilter : undefined }),
-        api.opd.list(),
-      ]);
-      setItems(pegawaiData);
-      setOpdList(opdData);
+      const result = await api.pejabat.list({
+        opd_id: opdFilter !== "all" ? opdFilter : undefined,
+        search: search || undefined,
+        limit,
+        offset,
+      });
+      setItems(result.data);
+      setTotal(result.total);
     } catch {
       toast.error("Gagal memuat data pegawai");
     } finally {
       setLoading(false);
     }
-  }, [opdFilter]);
+  }, [opdFilter, search, limit, offset]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchTable(); }, [fetchTable]);
 
   const filteredData = useMemo(() => {
-    return items.filter((p) => {
-      const matchSearch = !search ||
-        p.nama.toLowerCase().includes(search.toLowerCase()) ||
-        p.nip.includes(search) ||
-        p.jabatan.toLowerCase().includes(search.toLowerCase());
-      const matchJenis = jenisFilter === "all" ||
-        (jenisFilter === "struktural" && p.eselon && p.eselon !== "Non-eselon") ||
-        (jenisFilter === "fungsional" && (!p.eselon || p.eselon === "Non-eselon"));
-      return matchSearch && matchJenis;
-    });
-  }, [items, search, jenisFilter]);
+    if (jenisFilter === "all") return items;
+    return items.filter((p) =>
+      (jenisFilter === "struktural" && p.eselon && p.eselon !== "Non-eselon") ||
+      (jenisFilter === "fungsional" && (!p.eselon || p.eselon === "Non-eselon"))
+    );
+  }, [items, jenisFilter]);
 
   const stats = useMemo(() => ({
-    total: items.length,
-    struktural: items.filter((p) => p.eselon && p.eselon !== "Non-eselon").length,
-    fungsional: items.filter((p) => !p.eselon || p.eselon === "Non-eselon").length,
-    eselon2: items.filter((p) => p.eselon?.startsWith("II")).length,
-  }), [items]);
+    total: statsData.length || total,
+    struktural: statsData.filter((p) => p.eselon && p.eselon !== "Non-eselon").length,
+    fungsional: statsData.filter((p) => !p.eselon || p.eselon === "Non-eselon").length,
+    eselon2: statsData.filter((p) => p.eselon?.startsWith("II")).length,
+  }), [statsData, total]);
 
   function openCreate() {
     setEditingPegawai(null);
@@ -183,15 +198,15 @@ export default function DataPegawaiPage() {
         pendidikan: form.pendidikan,
       };
       if (editingPegawai) {
-        const updated = await api.pejabat.update(editingPegawai.id, payload);
-        setItems((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+        await api.pejabat.update(editingPegawai.id, payload);
         toast.success("Data pegawai berhasil diperbarui");
       } else {
-        const created = await api.pejabat.create(payload);
-        setItems((prev) => [...prev, created]);
+        await api.pejabat.create(payload);
         toast.success("Pegawai berhasil ditambahkan");
       }
       setDialogOpen(false);
+      fetchTable();
+      fetchStats();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
       toast.error(`Gagal menyimpan: ${msg}`);
@@ -205,9 +220,10 @@ export default function DataPegawaiPage() {
     setSaving(true);
     try {
       await api.pejabat.delete(deletingPegawai.id);
-      setItems((prev) => prev.filter((p) => p.id !== deletingPegawai.id));
       toast.success("Pegawai berhasil dihapus");
       setDeleteOpen(false);
+      fetchTable();
+      fetchStats();
     } catch {
       toast.error("Gagal menghapus pegawai");
     } finally {
@@ -273,10 +289,10 @@ export default function DataPegawaiPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="Cari nama, NIP, jabatan..."
-                  value={search} onChange={(e) => setSearch(e.target.value)}
+                  value={search} onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
                   className="h-9 rounded-xl border-border/70 bg-background/80 pl-9 sm:w-52" />
               </div>
-              <Select value={opdFilter} onValueChange={setOpdFilter}>
+              <Select value={opdFilter} onValueChange={(v) => { setOpdFilter(v); setOffset(0); }}>
                 <SelectTrigger className="h-9 rounded-xl border-border/70 bg-background/80 sm:w-44">
                   <Filter className="mr-2 h-3.5 w-3.5" />
                   <SelectValue placeholder="Semua OPD" />
@@ -300,7 +316,7 @@ export default function DataPegawaiPage() {
               </Select>
               {(search || opdFilter !== "all" || jenisFilter !== "all") && (
                 <Button variant="outline" size="sm" className="h-9 rounded-xl"
-                  onClick={() => { setSearch(""); setOpdFilter("all"); setJenisFilter("all"); }}>
+                  onClick={() => { setSearch(""); setOpdFilter("all"); setJenisFilter("all"); setOffset(0); }}>
                   Reset
                 </Button>
               )}
@@ -382,6 +398,17 @@ export default function DataPegawaiPage() {
               </TableBody>
             </Table>
           </div>
+          {total > 0 && (
+            <div className="border-t border-border/70">
+              <DataTablePagination
+                total={total}
+                limit={limit}
+                offset={offset}
+                onPageChange={setOffset}
+                onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -31,6 +31,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type Jabatan, type OPD, type SpesifikasiJabatan } from "@/lib/api";
 import {
     Award,
@@ -49,7 +50,7 @@ import {
     Shield,
     Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 // ----- Type definitions for the structured JSON fields -----
@@ -123,6 +124,9 @@ export default function SpesifikasiJabatanPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [opdList, setOpdList] = useState<OPD[]>([]);
   const [jabatanList, setJabatanList] = useState<Jabatan[]>([]);
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
   const [spesifikasiMap, setSpesifikasiMap] = useState<Record<string, SpesifikasiJabatan>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -131,17 +135,23 @@ export default function SpesifikasiJabatanPage() {
   const [editData, setEditData] = useState<SpesifikasiParsed>(defaultSpesifikasi);
 
   useEffect(() => {
-    api.opd.list().then(setOpdList);
-    api.jabatan.list().then(setJabatanList);
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data));
   }, []);
 
-  const filteredData = jabatanList.filter((jabatan) => {
-    const matchSearch =
-      jabatan.nama.toLowerCase().includes(search.toLowerCase()) ||
-      jabatan.kode.includes(search);
-    const matchOpd = opdFilter === "all" || jabatan.opd_id === opdFilter;
-    return matchSearch && matchOpd;
-  });
+  const fetchJabatan = useCallback(async () => {
+    const result = await api.jabatan.list({
+      opd_id: opdFilter !== "all" ? opdFilter : undefined,
+      search: search || undefined,
+      limit,
+      offset,
+    });
+    setJabatanList(result.data);
+    setTotal(result.total);
+  }, [opdFilter, search, limit, offset]);
+
+  useEffect(() => { fetchJabatan(); }, [fetchJabatan]);
+
+  const filteredData = jabatanList;
 
   async function loadSpesifikasi(jabatan: Jabatan): Promise<SpesifikasiJabatan | null> {
     if (spesifikasiMap[jabatan.id]) return spesifikasiMap[jabatan.id];
@@ -267,10 +277,10 @@ export default function SpesifikasiJabatanPage() {
           <div className="flex flex-col gap-4 sm:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Cari jabatan..." value={search} onChange={(e) => setSearch(e.target.value)}
+              <Input placeholder="Cari jabatan..." value={search} onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
                 className="h-11 rounded-xl border-border/70 bg-background/80 pl-9" />
             </div>
-            <Select value={opdFilter} onValueChange={setOpdFilter}>
+            <Select value={opdFilter} onValueChange={(v) => { setOpdFilter(v); setOffset(0); }}>
               <SelectTrigger className="h-11 w-full rounded-xl border-border/70 bg-background/80 sm:w-64">
                 <SelectValue placeholder="Filter OPD" />
               </SelectTrigger>
@@ -353,6 +363,17 @@ export default function SpesifikasiJabatanPage() {
               </TableBody>
             </Table>
           </div>
+          {total > 0 && (
+            <div className="border-t border-border/70">
+              <DataTablePagination
+                total={total}
+                limit={limit}
+                offset={offset}
+                onPageChange={setOffset}
+                onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -30,6 +30,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DataTablePagination } from "@/components/data-table-pagination";
 import { api, type OPD, type Pejabat } from "@/lib/api";
 import {
     Building2,
@@ -82,10 +83,14 @@ const emptyForm: OpdForm = {
 
 export default function DaftarOPDPage() {
   const [items, setItems] = useState<OPD[]>([]);
+  const [statsData, setStatsData] = useState<OPD[]>([]);
   const [pejabatList, setPejabatList] = useState<Pejabat[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [total, setTotal] = useState(0);
+  const [limit, setLimit] = useState(10);
+  const [offset, setOffset] = useState(0);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -96,45 +101,46 @@ export default function DaftarOPDPage() {
   const [form, setForm] = useState<OpdForm>(emptyForm);
   const [saving, setSaving] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchStats = useCallback(async () => {
+    try {
+      const [statsResult, pejabatData] = await Promise.all([
+        api.opd.list({ limit: 0 }),
+        api.pejabat.list({ limit: 0 }),
+      ]);
+      setStatsData(statsResult.data);
+      setPejabatList(pejabatData.data);
+    } catch { /* keep previous */ }
+  }, []);
+
+  const fetchTable = useCallback(async () => {
     setLoading(true);
     try {
-      const [opdData, pejabatData] = await Promise.all([
-        api.opd.list(),
-        api.pejabat.list(),
-      ]);
-      setItems(opdData);
-      setPejabatList(pejabatData);
+      const result = await api.opd.list({ search: search || undefined, limit, offset });
+      setItems(result.data);
+      setTotal(result.total);
     } catch {
       toast.error("Gagal memuat data OPD");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, limit, offset]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { fetchTable(); }, [fetchTable]);
 
   const filteredData = useMemo(() => {
-    return items.filter((opd) => {
-      const matchSearch =
-        !search ||
-        opd.nama.toLowerCase().includes(search.toLowerCase()) ||
-        opd.kode.toLowerCase().includes(search.toLowerCase()) ||
-        (opd.kepala ?? "").toLowerCase().includes(search.toLowerCase());
-      const matchStatus =
-        statusFilter === "all" ||
-        opd.status_anjab === statusFilter ||
-        opd.status_abk === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  }, [items, search, statusFilter]);
+    if (statusFilter === "all") return items;
+    return items.filter((opd) =>
+      opd.status_anjab === statusFilter || opd.status_abk === statusFilter
+    );
+  }, [items, statusFilter]);
 
   const stats = useMemo(() => ({
-    total: items.length,
-    anjabSelesai: items.filter((o) => o.status_anjab === "selesai").length,
-    abkSelesai: items.filter((o) => o.status_abk === "selesai").length,
-    totalPegawai: items.reduce((sum, o) => sum + (o.total_pegawai ?? 0), 0),
-  }), [items]);
+    total: statsData.length || total,
+    anjabSelesai: statsData.filter((o) => o.status_anjab === "selesai").length,
+    abkSelesai: statsData.filter((o) => o.status_abk === "selesai").length,
+    totalPegawai: statsData.reduce((sum, o) => sum + (o.total_pegawai ?? 0), 0),
+  }), [statsData, total]);
 
   function openCreate() {
     setEditingOpd(null);
@@ -168,15 +174,15 @@ export default function DaftarOPDPage() {
         telepon: form.telepon, email: form.email,
       };
       if (editingOpd) {
-        const updated = await api.opd.update(editingOpd.id, payload);
-        setItems((prev) => prev.map((o) => o.id === updated.id ? updated : o));
+        await api.opd.update(editingOpd.id, payload);
         toast.success("OPD berhasil diperbarui");
       } else {
-        const created = await api.opd.create(payload);
-        setItems((prev) => [...prev, created]);
+        await api.opd.create(payload);
         toast.success("OPD berhasil ditambahkan");
       }
       setDialogOpen(false);
+      fetchTable();
+      fetchStats();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Terjadi kesalahan";
       toast.error(`Gagal menyimpan OPD: ${msg}`);
@@ -190,9 +196,10 @@ export default function DaftarOPDPage() {
     setSaving(true);
     try {
       await api.opd.delete(deletingOpd.id);
-      setItems((prev) => prev.filter((o) => o.id !== deletingOpd.id));
       toast.success("OPD berhasil dihapus");
       setDeleteOpen(false);
+      fetchTable();
+      fetchStats();
     } catch {
       toast.error("Gagal menghapus OPD");
     } finally {
@@ -247,7 +254,7 @@ export default function DaftarOPDPage() {
             <p className="font-semibold text-foreground">
               Daftar OPD
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({filteredData.length} dari {items.length})
+                ({total} total)
               </span>
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -256,7 +263,7 @@ export default function DaftarOPDPage() {
                 <Input
                   placeholder="Cari nama, kode, kepala..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setOffset(0); }}
                   className="h-9 rounded-xl border-border/70 bg-background/80 pl-9 sm:w-56"
                 />
               </div>
@@ -274,7 +281,7 @@ export default function DaftarOPDPage() {
               </Select>
               {(search || statusFilter !== "all") && (
                 <Button variant="outline" size="sm" className="h-9 rounded-xl"
-                  onClick={() => { setSearch(""); setStatusFilter("all"); }}>
+                  onClick={() => { setSearch(""); setStatusFilter("all"); setOffset(0); }}>
                   Reset
                 </Button>
               )}
@@ -361,6 +368,17 @@ export default function DaftarOPDPage() {
               </TableBody>
             </Table>
           </div>
+          {total > 0 && (
+            <div className="border-t border-border/70">
+              <DataTablePagination
+                total={total}
+                limit={limit}
+                offset={offset}
+                onPageChange={setOffset}
+                onPageSizeChange={(newLimit) => { setLimit(newLimit); setOffset(0); }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
 

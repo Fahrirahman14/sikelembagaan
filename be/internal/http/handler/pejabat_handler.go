@@ -30,11 +30,12 @@ type pejabatRequest struct {
 func (h PejabatHandler) List(c *echo.Context) error {
 	opdID := c.QueryParam("opd_id")
 	search := c.QueryParam("search")
-	items, err := store.ListPejabat(c.Request().Context(), h.DB, opdID, search)
+	limit, offset := parsePagination(c)
+	result, err := store.ListPejabat(c.Request().Context(), h.DB, opdID, search, limit, offset)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal mengambil data pejabat")
 	}
-	return c.JSON(http.StatusOK, items)
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h PejabatHandler) Get(c *echo.Context) error {
