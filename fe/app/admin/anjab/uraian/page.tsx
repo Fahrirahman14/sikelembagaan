@@ -31,7 +31,8 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTablePagination } from "@/components/data-table-pagination";
-import { api, type Jabatan, type OPD, type UraianJabatan } from "@/lib/api";
+import { api, type Jabatan, type JabatanUraianRow, type OPD, type UraianJabatan } from "@/lib/api";
+import * as XLSX from "xlsx";
 import {
     Briefcase,
     Building2,
@@ -101,6 +102,32 @@ function StringListEditor({ label, items, onChange }: { label: string; items: st
   );
 }
 
+function exportUraianToExcel(rows: JabatanUraianRow[], filename: string) {
+  const join = (arr: string[]) => (arr ?? []).join("\n");
+  const data = rows.map((r, i) => ({
+    "No": i + 1,
+    "Kode Jabatan": r.kode,
+    "Nama Jabatan": r.nama,
+    "Jenis": r.jenis,
+    "OPD": r.opd_nama,
+    "Unit Kerja": r.unit_kerja,
+    "Ikhtisar Jabatan": r.ikhtisar,
+    "Status": r.status_anjab,
+    "Uraian Tugas": join(r.tugas),
+    "Fungsi": join(r.fungsi),
+    "Wewenang": join(r.wewenang),
+    "Tanggung Jawab": join(r.tanggung_jawab),
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws["!cols"] = [
+    { wch: 4 }, { wch: 14 }, { wch: 30 }, { wch: 12 }, { wch: 30 },
+    { wch: 25 }, { wch: 35 }, { wch: 12 }, { wch: 40 }, { wch: 35 }, { wch: 35 }, { wch: 35 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Uraian Jabatan");
+  XLSX.writeFile(wb, filename);
+}
+
 export default function UraianJabatanPage() {
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
@@ -115,6 +142,7 @@ export default function UraianJabatanPage() {
   const [uraianMap, setUraianMap] = useState<Record<string, UraianJabatan>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [editData, setEditData] = useState<UraianParsed>(defaultUraian);
 
   useEffect(() => {
@@ -186,6 +214,25 @@ export default function UraianJabatanPage() {
   const getUraianParsed = (jabatanId: string): UraianParsed =>
     parseUraian(uraianMap[jabatanId] ?? null);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const rows = await api.uraian.export({
+        opd_id: opdFilter !== "all" ? opdFilter : undefined,
+        search: search || undefined,
+      });
+      const opdName = opdFilter !== "all"
+        ? (opdList.find((o) => o.id === opdFilter)?.nama ?? "filtered")
+        : "semua-opd";
+      exportUraianToExcel(rows, `uraian-jabatan-${opdName}.xlsx`);
+      toast.success(`${rows.length} data berhasil diekspor`);
+    } catch {
+      toast.error("Gagal mengekspor data");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
@@ -201,14 +248,19 @@ export default function UraianJabatanPage() {
           <h1 className="mt-1 text-2xl font-bold text-foreground">Uraian Jabatan</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
-            <Download className="h-4 w-4" />
-            Export
+          <Button
+            variant="outline"
+            className="gap-2 rounded-xl border-border/70 bg-background/80"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? "Mengekspor..." : "Export Excel"}
           </Button>
-          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
+          {/* <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80" onClick={() => window.print()}>
             <Printer className="h-4 w-4" />
             Cetak
-          </Button>
+          </Button> */}
         </div>
       </div>
 

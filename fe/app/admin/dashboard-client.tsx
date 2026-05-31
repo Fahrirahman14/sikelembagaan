@@ -112,9 +112,9 @@ export function DashboardClient() {
         <RecentActivity />
       </div>
 
-      <div className="mt-6">
+      {/* <div className="mt-6">
         <OrgStructure />
-      </div>
+      </div> */}
 
       <div className="mt-6">
         <OPDTable />

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/auth-context";
-import { AlertCircle, Building2, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Lock, Mail } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -46,11 +47,11 @@ export default function PublicLoginPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center text-center">
-          <Link href="/" className="mb-4 inline-flex items-center gap-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
-              <Building2 className="h-6 w-6 text-primary-foreground" />
+          <Link href="/" className="mb-4 inline-flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-primary/15 overflow-hidden">
+              <Image src="/logo.webp" alt="SIKELEMBAGAAN" width={52} height={52} className="object-contain" />
             </div>
-            <div className="hidden text-left sm:block">
+            <div className="text-left">
               <p className="text-lg font-bold text-foreground">SIKELEMBAGAAN</p>
               <p className="text-xs text-muted-foreground">Pemerintah Kabupaten</p>
             </div>

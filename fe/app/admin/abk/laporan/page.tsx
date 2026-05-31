@@ -15,10 +15,10 @@ export default function LaporanPage() {
           <h1 className="mt-1 text-2xl font-bold text-foreground">Laporan ABK</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
+          {/* <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
             <Printer className="h-4 w-4" />
             Cetak semua
-          </Button>
+          </Button> */}
           <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15">
             <Download className="h-4 w-4" />
             Export laporan

@@ -38,6 +38,16 @@ func (h SpesifikasiHandler) Get(c *echo.Context) error {
 	return c.JSON(http.StatusOK, item)
 }
 
+func (h SpesifikasiHandler) Export(c *echo.Context) error {
+	opdID := c.QueryParam("opd_id")
+	search := c.QueryParam("search")
+	rows, err := store.ExportSpesifikasi(c.Request().Context(), h.DB, opdID, search)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "Gagal export spesifikasi jabatan")
+	}
+	return c.JSON(http.StatusOK, rows)
+}
+
 func (h SpesifikasiHandler) Upsert(c *echo.Context) error {
 	jabatanID, err := parseID(c, "jabatanId")
 	if err != nil {

@@ -264,10 +264,10 @@ export default function LaporanPage() {
           <h1 className="mt-1 text-2xl font-bold text-foreground">Laporan &amp; Rekap</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80" onClick={handleCetak}>
+          {/* <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80" onClick={handleCetak}>
             <Printer className="h-4 w-4" />
             Cetak
-          </Button>
+          </Button> */}
           <Button className="gap-2 rounded-xl shadow-lg shadow-primary/15" onClick={handleExportPDF}>
             <Download className="h-4 w-4" />
             Export PDF

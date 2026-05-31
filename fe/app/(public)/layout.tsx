@@ -1,6 +1,7 @@
 import { PublicNavbar } from "@/components/public-navbar";
 import { Badge } from "@/components/ui/badge";
-import { ArrowUpRight, Building2, MapPin, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, MapPin, ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function PublicLayout({
@@ -27,8 +28,8 @@ export default function PublicLayout({
           <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr_0.8fr]">
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/15">
-                  <Building2 className="h-5 w-5" />
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-lg shadow-primary/15 overflow-hidden">
+                  <Image src="/logo.webp" alt="SIKELEMBAGAAN" width={40} height={40} className="object-contain" />
                 </div>
                 <div>
                   <p className="text-base font-semibold text-foreground">SIKELEMBAGAAN</p>

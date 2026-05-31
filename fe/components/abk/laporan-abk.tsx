@@ -282,9 +282,9 @@ export function LaporanABKComponent() {
                         <DropdownMenuItem>
                           <Download className="mr-2 h-4 w-4" /> Download PDF
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        {/* <DropdownMenuItem>
                           <Printer className="mr-2 h-4 w-4" /> Cetak
-                        </DropdownMenuItem>
+                        </DropdownMenuItem> */}
                         <DropdownMenuSeparator />
                         {item.status === "draft" && (
                           <DropdownMenuItem onClick={() => handleUpdateStatus(item.id, "final")}>
@@ -397,7 +397,7 @@ export function LaporanABKComponent() {
                     Setujui
                   </Button>
                 )}
-                <Button variant="outline" className="gap-2"><Printer className="h-4 w-4" />Cetak</Button>
+                {/* <Button variant="outline" className="gap-2"><Printer className="h-4 w-4" />Cetak</Button> */}
                 <Button className="gap-2"><Download className="h-4 w-4" />Download PDF</Button>
               </div>
             </div>

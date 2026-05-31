@@ -173,6 +173,35 @@ export interface DokumenAnjab {
   updated_at: string;
 }
 
+export interface JabatanUraianRow {
+  kode: string;
+  nama: string;
+  jenis: string;
+  opd_nama: string;
+  unit_kerja: string;
+  ikhtisar: string;
+  status_anjab: string;
+  tugas: string[];
+  fungsi: string[];
+  wewenang: string[];
+  tanggung_jawab: string[];
+}
+
+export interface JabatanSpesifikasiRow {
+  kode: string;
+  nama: string;
+  jenis: string;
+  opd_nama: string;
+  unit_kerja: string;
+  status_anjab: string;
+  pendidikan_formal: { jenjang?: string; minimal?: string; jurusan?: string[] };
+  pelatihan: { nama: string; jenis: string; wajib: boolean }[];
+  pengalaman: { deskripsi: string; wajib: boolean }[];
+  kompetensi_manajerial: { nama: string; level: number; maxLevel: number }[];
+  kompetensi_teknis: { nama: string; level: number; maxLevel: number }[];
+  kondisi_fisik: { usia?: string; kesehatan?: string; kondisiKhusus?: string };
+}
+
 export interface SpesifikasiJabatan {
   id: string;
   jabatan_id: string;
@@ -573,6 +602,12 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(data),
       }),
+    export: (params?: { opd_id?: string; search?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.opd_id) q.set("opd_id", params.opd_id);
+      if (params?.search) q.set("search", params.search);
+      return request<JabatanSpesifikasiRow[]>(`/anjab/spesifikasi/export${q.toString() ? `?${q}` : ""}`);
+    },
   },
 
   // ---- ANJAB Uraian ----
@@ -584,6 +619,12 @@ export const api = {
         method: "PUT",
         body: JSON.stringify(data),
       }),
+    export: (params?: { opd_id?: string; search?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.opd_id) q.set("opd_id", params.opd_id);
+      if (params?.search) q.set("search", params.search);
+      return request<JabatanUraianRow[]>(`/anjab/uraian/export${q.toString() ? `?${q}` : ""}`);
+    },
   },
 
   // ---- SAKIP Nilai ----

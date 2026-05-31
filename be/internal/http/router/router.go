@@ -133,11 +133,13 @@ func New(cfg config.Config, db *sql.DB) *echo.Echo {
 
 	// --- Anjab Spesifikasi ---
 	spesifikasi := handler.SpesifikasiHandler{DB: db}
+	protected.GET("/anjab/spesifikasi/export", spesifikasi.Export)
 	protected.GET("/anjab/spesifikasi/:jabatanId", spesifikasi.Get)
 	protected.PUT("/anjab/spesifikasi/:jabatanId", spesifikasi.Upsert)
 
 	// --- Anjab Uraian ---
 	uraian := handler.UraianHandler{DB: db}
+	protected.GET("/anjab/uraian/export", uraian.Export)
 	protected.GET("/anjab/uraian/:jabatanId", uraian.Get)
 	protected.PUT("/anjab/uraian/:jabatanId", uraian.Upsert)
 

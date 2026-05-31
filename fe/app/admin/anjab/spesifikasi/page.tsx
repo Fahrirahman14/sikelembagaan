@@ -32,7 +32,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { DataTablePagination } from "@/components/data-table-pagination";
-import { api, type Jabatan, type OPD, type SpesifikasiJabatan } from "@/lib/api";
+import { api, type Jabatan, type JabatanSpesifikasiRow, type OPD, type SpesifikasiJabatan } from "@/lib/api";
+import * as XLSX from "xlsx";
 import {
     Award,
     Brain,
@@ -116,6 +117,43 @@ function parseSpesifikasi(raw: SpesifikasiJabatan | null): SpesifikasiParsed {
   };
 }
 
+function exportSpesifikasiToExcel(rows: JabatanSpesifikasiRow[], filename: string) {
+  const join = (arr: string[]) => (arr ?? []).join("; ");
+  const data = rows.map((r, i) => {
+    const pf = r.pendidikan_formal ?? {};
+    return {
+      "No": i + 1,
+      "Kode Jabatan": r.kode,
+      "Nama Jabatan": r.nama,
+      "Jenis": r.jenis,
+      "OPD": r.opd_nama,
+      "Unit Kerja": r.unit_kerja,
+      "Status": r.status_anjab,
+      "Pend. Jenjang": pf.jenjang ?? "-",
+      "Pend. Minimal": pf.minimal ?? "-",
+      "Jurusan": join(pf.jurusan ?? []),
+      "Pelatihan Wajib": (r.pelatihan ?? []).filter((p) => p.wajib).map((p) => p.nama).join("; "),
+      "Pelatihan Opsional": (r.pelatihan ?? []).filter((p) => !p.wajib).map((p) => p.nama).join("; "),
+      "Pengalaman Wajib": (r.pengalaman ?? []).filter((p) => p.wajib).map((p) => p.deskripsi).join("; "),
+      "Pengalaman Opsional": (r.pengalaman ?? []).filter((p) => !p.wajib).map((p) => p.deskripsi).join("; "),
+      "Komp. Manajerial": (r.kompetensi_manajerial ?? []).map((k) => `${k.nama} (Lv.${k.level})`).join("; "),
+      "Komp. Teknis": (r.kompetensi_teknis ?? []).map((k) => `${k.nama} (Lv.${k.level})`).join("; "),
+      "Usia": r.kondisi_fisik?.usia ?? "-",
+      "Kesehatan": r.kondisi_fisik?.kesehatan ?? "-",
+      "Kondisi Khusus": r.kondisi_fisik?.kondisiKhusus ?? "-",
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws["!cols"] = [
+    { wch: 4 }, { wch: 14 }, { wch: 30 }, { wch: 12 }, { wch: 30 }, { wch: 25 }, { wch: 12 },
+    { wch: 12 }, { wch: 12 }, { wch: 25 }, { wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 30 },
+    { wch: 30 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 25 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Spesifikasi Jabatan");
+  XLSX.writeFile(wb, filename);
+}
+
 export default function SpesifikasiJabatanPage() {
   const [search, setSearch] = useState("");
   const [opdFilter, setOpdFilter] = useState("all");
@@ -130,6 +168,7 @@ export default function SpesifikasiJabatanPage() {
   const [spesifikasiMap, setSpesifikasiMap] = useState<Record<string, SpesifikasiJabatan>>({});
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Edit form state
   const [editData, setEditData] = useState<SpesifikasiParsed>(defaultSpesifikasi);
@@ -206,6 +245,25 @@ export default function SpesifikasiJabatanPage() {
   const getSpesifikasiParsed = (jabatanId: string): SpesifikasiParsed =>
     parseSpesifikasi(spesifikasiMap[jabatanId] ?? null);
 
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const rows = await api.spesifikasi.export({
+        opd_id: opdFilter !== "all" ? opdFilter : undefined,
+        search: search || undefined,
+      });
+      const opdName = opdFilter !== "all"
+        ? (opdList.find((o) => o.id === opdFilter)?.nama ?? "filtered")
+        : "semua-opd";
+      exportSpesifikasiToExcel(rows, `spesifikasi-jabatan-${opdName}.xlsx`);
+      toast.success(`${rows.length} data berhasil diekspor`);
+    } catch {
+      toast.error("Gagal mengekspor data");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const activeFilters = [
     search ? `Pencarian: ${search}` : null,
     opdFilter !== "all"
@@ -239,9 +297,14 @@ export default function SpesifikasiJabatanPage() {
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Spesifikasi jabatan</p>
           <h1 className="mt-1 text-2xl font-bold text-foreground">Spesifikasi Jabatan</h1>
         </div>
-        <Button variant="outline" className="gap-2 rounded-xl border-border/70 bg-background/80">
-          <Download className="h-4 w-4" />
-          Export
+        <Button
+          variant="outline"
+          className="gap-2 rounded-xl border-border/70 bg-background/80"
+          onClick={handleExport}
+          disabled={exporting}
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {exporting ? "Mengekspor..." : "Export Excel"}
         </Button>
       </div>
 
