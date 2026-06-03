@@ -83,22 +83,24 @@ export function WorkloadChart() {
               <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#fff",
-                  border: "1px solid #e5e5e5",
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #e6e6e6",
                   borderRadius: "8px",
+                  boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
+                  fontSize: "13px",
                 }}
               />
               <Legend />
               <Bar
                 dataKey="kebutuhan"
                 name="Kebutuhan"
-                fill="#ebd938"
+                fill="#FEC503"
                 radius={[4, 4, 0, 0]}
               />
               <Bar
                 dataKey="existing"
                 name="Existing"
-                fill="#374151"
+                fill="#001839"
                 radius={[4, 4, 0, 0]}
               />
             </BarChart>

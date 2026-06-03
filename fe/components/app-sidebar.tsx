@@ -18,6 +18,7 @@ import {
   X
 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -150,14 +151,19 @@ export function AppSidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-sidebar-border/70 bg-[linear-gradient(180deg,rgba(31,54,109,0.98),rgba(26,41,85,0.98))] text-sidebar-foreground transition-transform lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-transform lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="border-b border-sidebar-border/70 px-6 pb-5 pt-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground shadow-lg shadow-black/20">
-              <Building2 className="h-5 w-5" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1 shadow-md shadow-black/15">
+              <Image
+                src="/logo.webp"
+                alt="Logo SIKELEMBAGAAN"
+                width={36}
+                height={36}
+              />
             </div>
             <div>
               <h1 className="text-base font-bold text-white">SIKELEMBAGAAN</h1>

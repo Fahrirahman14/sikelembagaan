@@ -54,6 +54,33 @@ func New(cfg config.Config, db *sql.DB) *echo.Echo {
 		return c.JSON(http.StatusOK, map[string]any{"ok": true})
 	})
 
+	// === Public read-only routes (no JWT required) ===
+	public := api.Group("")
+	public.Use(frontendGuard.RequireFrontend)
+
+	dashboard := handler.DashboardHandler{DB: db}
+	public.GET("/dashboard/summary", dashboard.Summary)
+
+	opd := handler.OPDHandler{DB: db}
+	public.GET("/opd", opd.List)
+	public.GET("/opd/:id", opd.Get)
+
+	jabatan := handler.JabatanHandler{DB: db}
+	public.GET("/jabatan", jabatan.List)
+	public.GET("/jabatan/:id", jabatan.Get)
+
+	perhitungan := handler.PerhitunganHandler{DB: db}
+	public.GET("/abk/perhitungan", perhitungan.List)
+	public.GET("/abk/perhitungan/:id", perhitungan.Get)
+
+	laporanAbk := handler.LaporanABKHandler{DB: db}
+	public.GET("/abk/laporan", laporanAbk.List)
+	public.GET("/abk/laporan/:id", laporanAbk.Get)
+
+	sakip := handler.SAKIPHandler{DB: db}
+	public.GET("/sakip/nilai", sakip.ListNilai)
+	public.GET("/sakip/dokumen", sakip.ListDokumen)
+
 	// === Protected routes ===
 	protected := api.Group("")
 	protected.Use(frontendGuard.RequireFrontend)
@@ -63,24 +90,14 @@ func New(cfg config.Config, db *sql.DB) *echo.Echo {
 	protected.GET("/me", me.Me)
 
 	// --- Dashboard ---
-	dashboard := handler.DashboardHandler{DB: db}
-	protected.GET("/dashboard/summary", dashboard.Summary)
-
-	// --- Laporan / Rekap ---
 	protected.GET("/laporan/rekap-opd", dashboard.RekapOPD)
 
 	// --- OPD ---
-	opd := handler.OPDHandler{DB: db}
-	protected.GET("/opd", opd.List)
-	protected.GET("/opd/:id", opd.Get)
 	protected.POST("/opd", opd.Create)
 	protected.PUT("/opd/:id", opd.Update)
 	protected.DELETE("/opd/:id", opd.Delete)
 
 	// --- Jabatan ---
-	jabatan := handler.JabatanHandler{DB: db}
-	protected.GET("/jabatan", jabatan.List)
-	protected.GET("/jabatan/:id", jabatan.Get)
 	protected.POST("/jabatan", jabatan.Create)
 	protected.PUT("/jabatan/:id", jabatan.Update)
 	protected.DELETE("/jabatan/:id", jabatan.Delete)
@@ -108,16 +125,10 @@ func New(cfg config.Config, db *sql.DB) *echo.Echo {
 	protected.PUT("/abk/aktivitas/:id", aktivitas.Update)
 	protected.DELETE("/abk/aktivitas/:id", aktivitas.Delete)
 
-	// --- ABK Perhitungan ---
-	perhitungan := handler.PerhitunganHandler{DB: db}
-	protected.GET("/abk/perhitungan", perhitungan.List)
-	protected.GET("/abk/perhitungan/:id", perhitungan.Get)
+	// --- ABK Perhitungan (write) ---
 	protected.POST("/abk/perhitungan/calc", perhitungan.Calculate)
 
-	// --- ABK Laporan ---
-	laporanAbk := handler.LaporanABKHandler{DB: db}
-	protected.GET("/abk/laporan", laporanAbk.List)
-	protected.GET("/abk/laporan/:id", laporanAbk.Get)
+	// --- ABK Laporan (write) ---
 	protected.POST("/abk/laporan", laporanAbk.Create)
 	protected.PUT("/abk/laporan/:id", laporanAbk.Update)
 
@@ -143,11 +154,8 @@ func New(cfg config.Config, db *sql.DB) *echo.Echo {
 	protected.GET("/anjab/uraian/:jabatanId", uraian.Get)
 	protected.PUT("/anjab/uraian/:jabatanId", uraian.Upsert)
 
-	// --- SAKIP ---
-	sakip := handler.SAKIPHandler{DB: db}
-	protected.GET("/sakip/nilai", sakip.ListNilai)
+	// --- SAKIP (write) ---
 	protected.PUT("/sakip/nilai", sakip.UpsertNilai)
-	protected.GET("/sakip/dokumen", sakip.ListDokumen)
 	protected.POST("/sakip/dokumen", sakip.CreateDokumen)
 	protected.DELETE("/sakip/dokumen/:id", sakip.DeleteDokumen)
 

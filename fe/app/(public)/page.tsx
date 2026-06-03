@@ -2,7 +2,6 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { api, type DashboardSummary, type LaporanABK, type OPD } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -14,23 +13,22 @@ import {
   Building2,
   CheckCircle2,
   FileText,
-  ShieldCheck,
   TrendingUp,
-  Users
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-function getStatusTone(status: string) {
-  if (status === "selesai") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
+function getStatusBadge(status: string) {
+  if (status === "selesai") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "proses") return "border-amber-200 bg-amber-50 text-amber-700";
+  return "border-border bg-muted text-muted-foreground";
+}
 
-  if (status === "proses") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-
-  return "border-slate-200 bg-slate-100 text-slate-600";
+function getStatusBar(status: string) {
+  if (status === "selesai") return "bg-emerald-500";
+  if (status === "proses") return "bg-amber-400";
+  return "bg-border";
 }
 
 export default function PublicDashboardPage() {
@@ -39,9 +37,9 @@ export default function PublicDashboardPage() {
   const [laporanList, setLaporanList] = useState<LaporanABK[]>([]);
 
   useEffect(() => {
-    api.dashboard.summary().then(setSummary);
-    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data));
-    api.laporanAbk.list({ limit: 0 }).then((r) => setLaporanList(r.data));
+    api.dashboard.summary().then(setSummary).catch(() => {});
+    api.opd.list({ limit: 0 }).then((r) => setOpdList(r.data)).catch(() => {});
+    api.laporanAbk.list({ limit: 0 }).then((r) => setLaporanList(r.data)).catch(() => {});
   }, []);
 
   const totalOPD = summary?.total_opd ?? 0;
@@ -53,323 +51,328 @@ export default function PublicDashboardPage() {
       : 0;
   const opdSelesaiAnjab = summary?.anjab_selesai ?? 0;
   const topPerformer = [...laporanList].sort((a, b) => b.efisiensi - a.efisiensi)[0];
+  const largestOPD = [...opdList].sort((a, b) => b.total_pegawai - a.total_pegawai)[0];
+
+  const anjabSelesai = opdList.filter((o) => o.status_anjab === "selesai").length;
+  const abkSelesai = opdList.filter((o) => o.status_abk === "selesai").length;
 
   const stats = [
-    {
-      label: "Total OPD",
-      value: totalOPD,
-      caption: "Perangkat daerah terdata",
-      icon: Building2,
-      tone: "bg-primary/10 text-primary",
-    },
-    {
-      label: "Total Jabatan",
-      value: totalJabatan,
-      caption: "Posisi terpetakan",
-      icon: Briefcase,
-      tone: "bg-accent/30 text-accent-foreground",
-    },
-    {
-      label: "Total Pegawai",
-      value: totalPegawai,
-      caption: "Pegawai aktif lintas OPD",
-      icon: Users,
-      tone: "bg-sky-100 text-sky-700",
-    },
+    { label: "Total OPD", value: totalOPD, sub: "Perangkat daerah", icon: Building2 },
+    { label: "Total Jabatan", value: totalJabatan, sub: "Posisi terpetakan", icon: Briefcase },
+    { label: "Total Pegawai", value: totalPegawai, sub: "Aktif lintas OPD", icon: Users },
     {
       label: "Rata-rata Efisiensi",
       value: `${avgEfisiensi.toFixed(1)}%`,
-      caption: "Berdasarkan laporan ABK",
+      sub: "Dari laporan ABK",
       icon: TrendingUp,
-      tone: "bg-emerald-100 text-emerald-700",
-    },
-  ];
-
-  const quickLinks = [
-    {
-      title: "Capaian SAKIP",
-      description:
-        "Pantau nilai akuntabilitas, predikat, dan dokumen kinerja OPD secara terbuka.",
-      href: "/sakip",
-      icon: Award,
-    },
-    {
-      title: "Analisis Jabatan",
-      description:
-        "Jelajahi kebutuhan jabatan, kualifikasi inti, dan kondisi beban kerja terkini.",
-      href: "/anjab",
-      icon: BarChart3,
     },
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(39,81,191,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(232,183,35,0.18),transparent_22%)] py-8 sm:py-10">
-      <div className="absolute left-0 top-12 -z-10 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
-      <div className="absolute bottom-0 right-0 -z-10 h-72 w-72 rounded-full bg-accent/20 blur-3xl" />
-
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="space-y-8">
-          <section className="relative overflow-hidden rounded-4xl border border-white/60 bg-card/85 p-6 shadow-[0_24px_80px_-36px_rgba(15,23,42,0.45)] backdrop-blur sm:p-8 lg:p-10">
-            <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-[radial-gradient(circle_at_top,rgba(234,179,8,0.2),transparent_60%)] lg:block" />
-            <div className="relative grid gap-8 lg:grid-cols-[1.35fr_0.9fr] lg:items-center">
-              <div className="space-y-6 animate-in fade-in-0 slide-in-from-top-4 duration-700"> 
-                <div className="max-w-3xl space-y-4">
-                  <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
-                    Transparansi struktur kelembagaan, capaian kinerja, dan kebutuhan SDM dalam satu alur visual.
-                  </h1>
-                  <p className="text-base leading-7 text-muted-foreground sm:text-lg">
-                    Dashboard publik ini merangkum OPD, jabatan, efisiensi, dan akses ke halaman analitik utama dengan gaya visual yang seragam dan lebih mudah dipindai.
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {stats.map((stat) => (
-                    <Card
-                      key={stat.label}
-                      className="border-white/60 bg-background/80 shadow-sm backdrop-blur transition-transform duration-300 hover:-translate-y-1"
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
-                              {stat.label}
-                            </p>
-                            <p className="mt-3 text-3xl font-semibold text-foreground">
-                              {stat.value}
-                            </p>
-                            <p className="mt-1 text-sm text-muted-foreground">{stat.caption}</p>
-                          </div>
-                          <div className={cn("rounded-2xl p-3", stat.tone)}>
-                            <stat.icon className="h-5 w-5" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              <Card className="overflow-hidden border-0 bg-slate-950 text-slate-50 shadow-2xl shadow-slate-900/25 animate-in fade-in-0 slide-in-from-right-6 duration-700">
-                <CardContent className="space-y-6 p-6 sm:p-7">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.26em] text-slate-400">
-                        Snapshot Publik
-                      </p>
-                      <h2 className="mt-2 text-2xl font-semibold">Kondisi terbaru</h2>
-                    </div>
-                    <div className="rounded-2xl bg-white/10 p-3">
-                      <ShieldCheck className="h-5 w-5 text-accent" />
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                    <p className="text-sm text-slate-400">OPD dengan efisiensi tertinggi</p>
-                    <p className="mt-2 text-lg font-semibold text-white">
-                      {topPerformer?.opd_nama ?? "Belum ada data"}
-                    </p>
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-300">Efisiensi</span>
-                        <span className="font-medium text-white">
-                          {topPerformer?.efisiensi.toFixed(1) ?? "0.0"}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={Math.min(100, topPerformer?.efisiensi ?? 0)}
-                        className="h-2.5 bg-white/10"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-sm text-slate-400">Anjab selesai</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">{opdSelesaiAnjab}</p>
-                      <p className="text-xs text-slate-400">dari {totalOPD} OPD</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                      <p className="text-sm text-slate-400">Laporan ABK</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">{laporanList.length}</p>
-                      <p className="text-xs text-slate-400">dataset terpublikasi</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                      <p className="text-sm text-slate-300">
-                        Informasi publik dirancang agar cepat dipahami oleh warga, pimpinan, maupun perangkat daerah.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+    <div className="min-h-screen bg-background">
+      {/* Page header */}
+      <div className="border-b border-border bg-card">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Portal Publik
+              </p>
+              <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">
+                Dashboard Kelembagaan
+              </h1>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Gambaran umum OPD, jabatan, pegawai, dan efisiensi kerja lintas instansi secara terbuka.
+              </p>
             </div>
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_360px]">
-            <Card className="border-white/60 bg-card/80 shadow-[0_16px_50px_-30px_rgba(15,23,42,0.45)] backdrop-blur animate-in fade-in-0 slide-in-from-bottom-3 duration-700">
-              <CardContent className="p-6 sm:p-7">
-                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                      Akses Utama
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold text-foreground">
-                      Jelajahi modul publik utama
-                    </h2>
-                  </div>
-                  <Badge className="w-fit rounded-full border border-border/80 bg-background/80 px-3 py-1 text-muted-foreground">
-                    2 modul prioritas
-                  </Badge>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  {quickLinks.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      <Card className="group h-full border-border/70 bg-background/80 shadow-none transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5">
-                        <CardContent className="flex h-full flex-col gap-5 p-5">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="rounded-2xl bg-primary/10 p-3 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                              <link.icon className="h-5 w-5" />
-                            </div>
-                            <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform duration-300 group-hover:translate-x-1 group-hover:text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold text-foreground">{link.title}</h3>
-                            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                              {link.description}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-white/60 bg-card/80 shadow-[0_16px_50px_-30px_rgba(15,23,42,0.45)] backdrop-blur animate-in fade-in-0 slide-in-from-bottom-4 duration-700">
-              <CardContent className="space-y-5 p-6">
-                <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                    Highlight Data
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-foreground">
-                    Ringkasan cepat publik
-                  </h2>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
-                    <p className="text-sm text-muted-foreground">OPD dengan jumlah pegawai terbesar</p>
-                    <p className="mt-2 font-semibold text-foreground">
-                      {[...opdList].sort((a, b) => b.total_pegawai - a.total_pegawai)[0]?.nama}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
-                    <p className="text-sm text-muted-foreground">Total dokumen dan laporan</p>
-                    <p className="mt-2 text-2xl font-semibold text-foreground">
-                      {laporanList.length + totalOPD}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
-                    <p className="text-sm text-muted-foreground">Status transparansi</p>
-                    <div className="mt-2 flex items-center gap-2 text-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      <span className="font-medium">Data aktif tersedia untuk publik</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </section>
-
-          <section className="space-y-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                  Organisasi Perangkat Daerah
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-foreground">
-                  Ringkasan OPD terpublikasi
-                </h2>
-              </div>
-              <Badge className="w-fit rounded-full border border-border/80 bg-background/80 px-3 py-1 text-muted-foreground">
-                Menampilkan {Math.min(8, opdList.length)} OPD
+            <div className="flex shrink-0 items-start">
+              <Badge className="border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                <CheckCircle2 className="mr-1.5 h-3 w-3" />
+                Data aktif
               </Badge>
             </div>
+          </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {opdList.slice(0, 8).map((opd, index) => (
-                <Card
-                  key={opd.id}
-                  className="border-white/60 bg-card/80 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur animate-in fade-in-0 slide-in-from-bottom-3 duration-700"
-                  style={{ animationDelay: `${index * 70}ms` }}
-                >
-                  <CardContent className="space-y-4 p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                          {opd.kode}
-                        </p>
-                        <h3 className="mt-2 line-clamp-2 text-lg font-semibold text-foreground">
-                          {opd.nama}
-                        </h3>
-                      </div>
-                      <div className="rounded-2xl bg-primary/10 p-2.5 text-primary">
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
-                        <p className="text-muted-foreground">Pegawai</p>
-                        <p className="mt-1 font-semibold text-foreground">{opd.total_pegawai}</p>
-                      </div>
-                      <div className="rounded-2xl border border-border/70 bg-background/80 p-3">
-                        <p className="text-muted-foreground">Jabatan</p>
-                        <p className="mt-1 font-semibold text-foreground">{opd.total_jabatan}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Badge className={cn("rounded-full border px-3 py-1", getStatusTone(opd.status_anjab))}>
-                        Anjab {opd.status_anjab}
-                      </Badge>
-                      <Badge className={cn("rounded-full border px-3 py-1", getStatusTone(opd.status_abk))}>
-                        ABK {opd.status_abk}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-4xl bg-slate-950 px-6 py-8 text-slate-50 shadow-2xl shadow-slate-900/20 sm:px-8 sm:py-10">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-2xl">
-                <Badge className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-slate-100">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Akses lebih lengkap tersedia setelah login
-                </Badge>
-                <h2 className="mt-4 text-2xl font-semibold sm:text-3xl">
-                  Masuk ke sistem untuk pengelolaan kelembagaan yang lebih mendalam.
-                </h2>
-                <p className="mt-3 text-sm leading-7 text-slate-300 sm:text-base">
-                  Area administrator menyediakan pengelolaan data, pembaruan dokumen, serta evaluasi yang tidak ditampilkan di portal publik.
+          {/* Stat strip */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-lg border border-border bg-background px-4 py-3"
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  <stat.icon className="h-3.5 w-3.5 text-muted-foreground/40" />
+                </div>
+                <p className="mt-1.5 text-2xl font-bold tracking-tight text-foreground">
+                  {stat.value}
                 </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{stat.sub}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress ringkasan Anjab & ABK */}
+          {opdList.length > 0 && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">Anjab selesai</span>
+                  <span className="font-semibold text-foreground">
+                    {anjabSelesai}/{opdList.length} OPD
+                  </span>
+                </div>
+                <Progress
+                  value={opdList.length > 0 ? (anjabSelesai / opdList.length) * 100 : 0}
+                  className="mt-2 h-1.5"
+                />
+              </div>
+              <div className="rounded-lg border border-border bg-background px-4 py-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">ABK selesai</span>
+                  <span className="font-semibold text-foreground">
+                    {abkSelesai}/{opdList.length} OPD
+                  </span>
+                </div>
+                <Progress
+                  value={opdList.length > 0 ? (abkSelesai / opdList.length) * 100 : 0}
+                  className="mt-2 h-1.5"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          {/* Left column */}
+          <div className="space-y-6">
+            {/* Module access */}
+            <section>
+              <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Akses Modul Utama
+              </h2>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  {
+                    title: "Capaian SAKIP",
+                    description:
+                      "Pantau nilai akuntabilitas, predikat, dan dokumen kinerja setiap OPD.",
+                    href: "/sakip",
+                    icon: Award,
+                    meta: "Nilai & Dokumen Kinerja",
+                  },
+                  {
+                    title: "Analisis Jabatan",
+                    description:
+                      "Jelajahi kebutuhan jabatan, kualifikasi inti, dan kondisi beban kerja.",
+                    href: "/anjab",
+                    icon: BarChart3,
+                    meta: `${totalJabatan} jabatan tercatat`,
+                  },
+                ].map((link) => (
+                  <Link key={link.href} href={link.href} className="block">
+                    <div className="group flex h-full gap-4 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/20 hover:bg-primary/5">
+                      <div className="mt-0.5 h-fit rounded-md bg-muted p-2 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                        <link.icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-foreground">{link.title}</p>
+                          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                        </div>
+                        <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
+                          {link.description}
+                        </p>
+                        <p className="mt-2 text-xs font-medium text-primary">{link.meta}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {/* OPD Grid */}
+            <section>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Organisasi Perangkat Daerah
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {Math.min(8, opdList.length)} dari {opdList.length} OPD
+                </span>
               </div>
 
-              <Link href="/login">
-                <Button size="lg" className="rounded-xl bg-accent text-accent-foreground hover:bg-accent/90">
-                  Login Administrator
-                </Button>
-              </Link>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {opdList.slice(0, 8).map((opd) => (
+                  <div
+                    key={opd.id}
+                    className="overflow-hidden rounded-lg border border-border bg-card"
+                  >
+                    {/* Dual status bar: Anjab | ABK */}
+                    <div className="flex h-1">
+                      <div
+                        className={cn("flex-1 transition-colors", getStatusBar(opd.status_anjab))}
+                        title={`Anjab: ${opd.status_anjab}`}
+                      />
+                      <div
+                        className={cn("flex-1 transition-colors", getStatusBar(opd.status_abk))}
+                        title={`ABK: ${opd.status_abk}`}
+                      />
+                    </div>
+
+                    <div className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {opd.kode}
+                          </p>
+                          <h3 className="mt-0.5 line-clamp-2 text-sm font-semibold leading-tight text-foreground">
+                            {opd.nama}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex gap-3 text-xs">
+                          <span className="text-muted-foreground">
+                            <span className="font-semibold text-foreground">{opd.total_pegawai}</span>{" "}
+                            pegawai
+                          </span>
+                          <span className="text-muted-foreground">
+                            <span className="font-semibold text-foreground">{opd.total_jabatan}</span>{" "}
+                            jabatan
+                          </span>
+                        </div>
+                        <div className="flex gap-1">
+                          <span
+                            className={cn(
+                              "rounded border px-1.5 py-0.5 text-[10px] font-semibold",
+                              getStatusBadge(opd.status_anjab),
+                            )}
+                          >
+                            Anjab
+                          </span>
+                          <span
+                            className={cn(
+                              "rounded border px-1.5 py-0.5 text-[10px] font-semibold",
+                              getStatusBadge(opd.status_abk),
+                            )}
+                          >
+                            ABK
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+
+          {/* Right sidebar */}
+          <div className="space-y-4">
+            {/* Top performer */}
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Sorotan Data
+              </h2>
+
+              <div className="mt-3 space-y-2">
+                <div className="rounded-md border border-border bg-muted/40 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Efisiensi Tertinggi
+                  </p>
+                  <p className="mt-1.5 line-clamp-2 text-sm font-semibold text-foreground">
+                    {topPerformer?.opd_nama ?? "Belum ada data"}
+                  </p>
+                  {topPerformer && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Efisiensi</span>
+                        <span className="font-semibold text-foreground">
+                          {topPerformer.efisiensi.toFixed(1)}%
+                        </span>
+                      </div>
+                      <Progress value={Math.min(100, topPerformer.efisiensi)} className="h-1.5" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-border bg-muted/40 p-3 text-center">
+                    <p className="text-lg font-bold text-foreground">{opdSelesaiAnjab}</p>
+                    <p className="text-[10px] text-muted-foreground">Anjab selesai</p>
+                  </div>
+                  <div className="rounded-md border border-border bg-muted/40 p-3 text-center">
+                    <p className="text-lg font-bold text-foreground">{laporanList.length}</p>
+                    <p className="text-[10px] text-muted-foreground">Laporan ABK</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          </section>
+
+            {/* Quick info */}
+            <div className="rounded-lg border border-border bg-card p-4">
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Ringkasan Cepat
+              </h2>
+
+              <div className="mt-3 divide-y divide-border">
+                <div className="pb-3">
+                  <p className="text-[10px] text-muted-foreground">OPD pegawai terbanyak</p>
+                  <p className="mt-0.5 line-clamp-2 text-sm font-semibold text-foreground">
+                    {largestOPD?.nama ?? "—"}
+                  </p>
+                  {largestOPD && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {largestOPD.total_pegawai} pegawai aktif
+                    </p>
+                  )}
+                </div>
+                <div className="py-3">
+                  <p className="text-[10px] text-muted-foreground">Total dokumen & laporan</p>
+                  <p className="mt-0.5 text-lg font-bold text-foreground">
+                    {laporanList.length + totalOPD}
+                  </p>
+                </div>
+                <div className="pt-3">
+                  <p className="text-[10px] text-muted-foreground">Status transparansi</p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    <p className="text-sm font-medium text-foreground">Data tersedia untuk publik</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom CTA */}
+        <div className="mt-6 flex flex-col gap-4 rounded-lg border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-md bg-muted p-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Area pengelolaan tersedia untuk administrator.
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Pembaruan data, evaluasi, dan pengaturan sistem hanya dapat diakses setelah login.
+              </p>
+            </div>
+          </div>
+          <Link href="/login">
+            <Button size="sm" className="shrink-0 rounded-lg">
+              Login Administrator
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

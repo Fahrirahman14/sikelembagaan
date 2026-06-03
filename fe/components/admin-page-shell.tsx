@@ -43,7 +43,7 @@ export function AdminPageShell({
 
       <main
         className={cn(
-          "relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(39,81,191,0.1),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(232,183,35,0.16),transparent_20%)] lg:pl-72",
+          "relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(0,24,57,0.10),transparent_25%),radial-gradient(circle_at_bottom_right,rgba(254,197,3,0.10),transparent_22%)] lg:pl-72",
           mainClassName,
         )}
       >

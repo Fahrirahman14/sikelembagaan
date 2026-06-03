@@ -42,19 +42,19 @@ export function RecentActivity() {
         const result = await api.aktivitas.list({ limit: 5 });
         const mapped: Activity[] = result.data.map((a) => {
           let icon = "FileText";
-          let color = "bg-gray-100 text-gray-600";
+          let color = "bg-border text-muted-foreground";
           if (a.kategori === "utama") {
             icon = "FileText";
-            color = "bg-green-100 text-green-600";
+            color = "bg-[#09974C]/10 text-[#09974C]";
           } else if (a.kategori === "tambahan") {
             icon = "Users";
-            color = "bg-blue-100 text-blue-600";
+            color = "bg-primary/10 text-primary";
           } else if (a.kategori === "statistik") {
             icon = "BarChart3";
-            color = "bg-yellow-100 text-yellow-600";
+            color = "bg-[#FEC503]/15 text-amber-700";
           } else if (a.kategori === "opd") {
             icon = "Building2";
-            color = "bg-purple-100 text-purple-600";
+            color = "bg-primary/10 text-primary";
           }
 
           return {

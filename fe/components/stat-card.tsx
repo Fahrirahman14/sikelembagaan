@@ -25,7 +25,7 @@ export function StatCard({
     <Card
       className={cn(
         "group relative overflow-hidden border border-white/60 bg-card/85 shadow-[0_16px_50px_-36px_rgba(15,23,42,0.45)] backdrop-blur transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]",
-        variant === "primary" && "border-primary/20 bg-[linear-gradient(135deg,rgba(39,81,191,0.98),rgba(26,48,107,0.98))] text-primary-foreground"
+        variant === "primary" && "border-primary/20 bg-primary text-primary-foreground"
       )}
     >
       <div

@@ -20,7 +20,7 @@ export default function PublicLayout({
     <div className="min-h-screen bg-background">
       <PublicNavbar />
       <main>{children}</main>
-      <footer className="relative overflow-hidden border-t border-white/50 bg-[radial-gradient(circle_at_top_left,rgba(39,81,191,0.08),transparent_26%),linear-gradient(180deg,rgba(255,255,255,0.72),rgba(245,247,250,0.95))]">
+      <footer className="relative overflow-hidden border-t border-border bg-[radial-gradient(circle_at_top_left,rgba(0,24,57,0.08),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.80),rgba(248,249,251,0.98))]">
         <div className="absolute -left-10 top-6 h-32 w-32 rounded-full bg-primary/10 blur-3xl" />
         <div className="absolute right-0 top-0 h-36 w-36 rounded-full bg-accent/10 blur-3xl" />
 
